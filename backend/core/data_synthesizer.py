@@ -76,7 +76,7 @@ class DataSynthesizer:
             max_tokens=4000
         )
 
-        data = json.loads(response)
+        data = self._parse_llm_response(response)
         df = pd.DataFrame(data)
 
         # -----------------------------
@@ -95,6 +95,30 @@ class DataSynthesizer:
             "columns": list(df.columns),
             "file_path": file_path
         }
+
+    # -------------------------------------------------
+    # PARSE LLM RESPONSE
+    # -------------------------------------------------
+    def _parse_llm_response(self, response: str):
+        """
+        Strip markdown code fences if present, then parse JSON.
+        Handles responses like:
+            ```json
+            [ {...} ]
+            ```
+        """
+        text = response.strip()
+
+        # Remove opening fence (```json or ```)
+        if text.startswith("```"):
+            # Drop the first line (the fence line)
+            text = text[text.find("\n") + 1:]
+
+        # Remove closing fence
+        if text.endswith("```"):
+            text = text[:text.rfind("```")].strip()
+
+        return json.loads(text)
 
     # -------------------------------------------------
     # VALIDATION

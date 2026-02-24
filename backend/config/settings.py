@@ -6,7 +6,7 @@ Production-ready configuration with environment variable support
 import os
 from typing import Optional, List
 from functools import lru_cache
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, field_validator
 
 
@@ -92,9 +92,10 @@ class Settings(BaseSettings):
 
             os.environ["AWS_DEFAULT_REGION"] = self.aws_region
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=False
+    )
 
 
 @lru_cache()

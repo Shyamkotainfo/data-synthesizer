@@ -12,7 +12,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 # Add backend directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "backend"))
+sys.path.insert(0, os.path.dirname(__file__))
 
 
 def main():

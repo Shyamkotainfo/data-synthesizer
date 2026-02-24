@@ -16,8 +16,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from logger.logger import get_logger
 from config.settings import get_settings
-from core.dataset_generation_processor import DatasetGenerationProcessor
-from interfaces.cli_input_collector import collect_generation_input
+from core.data_synthesizer import DataSynthesizer
+from core.input_processor import InputProcessor
+from input.cli_input_collector import collect_generation_input
 
 
 def main():
@@ -38,8 +39,8 @@ def main():
     print("Type 'exit' to stop")
     print("=" * 60)
 
-    session_id = str(uuid.uuid4())
-    processor = DatasetGenerationProcessor(session_id=session_id)
+    synthesizer = DataSynthesizer()
+    input_processor = InputProcessor()
 
     # ---------------- MAIN LOOP ----------------
     while True:
@@ -55,7 +56,8 @@ def main():
 
             if command.lower() == "generate":
                 raw_request = collect_generation_input()
-                output = processor.process(raw_request)
+                request = input_processor.build_request(raw_request)
+                output = synthesizer.generate(request)
                 display_results(output)
             else:
                 print("Unknown command. Type 'generate' or 'exit'.")
