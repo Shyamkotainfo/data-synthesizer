@@ -1,0 +1,16 @@
+user_id,full_name,email,age,city,phone,signup_date,is_active
+123e4567-e89b-12d3-a456-426614174000,John Doe,johndoe@example.com,30,New York,+1-202-555-0164,2023-04-15,True
+123e4567-e89b-12d3-a456-426614174001,Jane Smith,janesmith@example.com,25,,,2022-07-21,False
+123e4567-e89b-12d3-a456-426614174002,Alice Johnson,alicejohnson@example.com,45,Los Angeles,+1-202-555-0165,2021-11-30,True
+123e4567-e89b-12d3-a456-426614174003,Bob Brown,bobbrown@example.com,50,,,2020-02-10,False
+123e4567-e89b-12d3-a456-426614174004,Charlie Davis,charliedavis@example.com,35,Chicago,+1-202-555-0166,2024-09-05,True
+123e4567-e89b-12d3-a456-426614174005,Diana White,dianawhite@example.com,28,,,2025-01-23,False
+123e4567-e89b-12d3-a456-426614174006,Edward Black,edwardblack@example.com,40,Houston,+1-202-555-0167,2020-05-18,True
+123e4567-e89b-12d3-a456-426614174007,Fiona Green,fionagreen@example.com,33,,,2021-12-08,False
+123e4567-e89b-12d3-a456-426614174008,George King,georgeking@example.com,55,Phoenix,+1-202-555-0168,2022-08-14,True
+123e4567-e89b-12d3-a456-426614174009,Hannah Queen,hannahqueen@example.com,22,,,2023-03-29,False
+123e4567-e89b-12d3-a456-426614174010,Ian Prince,ianprince@example.com,60,Philadelphia,+1-202-555-0169,2024-11-11,True
+123e4567-e89b-12d3-a456-426614174011,Judy Bishop,judybishop@example.com,48,,,2025-06-01,False
+123e4567-e89b-12d3-a456-426614174012,Kevin Duke,kevinduke@example.com,37,San Antonio,+1-202-555-0170,2020-09-25,True
+123e4567-e89b-12d3-a456-426614174013,Linda Earl,lindaearl@example.com,52,,,2021-04-12,False
+123e4567-e89b-12d3-a456-426614174014,Mike Freeman,mikefreeman@example.com,29,San Diego,+1-202-555-0171,2022-10-06,True
