@@ -57,10 +57,19 @@ def main():
             if command.lower() == "generate":
                 raw_request = collect_generation_input()
                 request = input_processor.build_request(raw_request)
+
+                # STEP 1: Show preview, ask for confirmation
+                confirmed = show_preview(request)
+                if not confirmed:
+                    print("  ↩ Generation cancelled.")
+                    continue
+
+                # STEP 2: Call LLM and generate
+                print("\n  Generating... (calling Bedrock LLM)")
                 output = synthesizer.generate(request)
                 display_results(output)
             else:
-                print("Unknown command. Type 'generate' or 'exit'.")
+                print("Unknown command. Type 'generate' or 'exit'.\"")
 
         except KeyboardInterrupt:
             print("\n Goodbye!")
@@ -70,13 +79,53 @@ def main():
             print(f"Error: {e}")
 
 
+def show_preview(request: dict) -> bool:
+    """
+    Display a summary of what will be generated.
+    Ask user to confirm before calling the LLM.
+    Returns True if confirmed, False to cancel.
+    """
+    print("\n" + "─" * 60)
+    print("  GENERATION PREVIEW — Please review before confirming")
+    print("─" * 60)
+    print(f"  Dataset Name  : {request.get('dataset_name')}")
+    print(f"  Rows          : {request.get('rows')}")
+    print(f"  Format        : {request.get('format')}")
+
+    if request.get("description"):
+        print(f"  Description   : {request['description']}")
+    if request.get("ai_criteria"):
+        print(f"  AI Criteria   : {request['ai_criteria']}")
+    if request.get("target_location"):
+        print(f"  Save To       : {request['target_location']}")
+
+    schema = request.get("schema")
+    if schema:
+        print(f"\n  {'Column':<20} {'Type':<12} {'Nullable':<10} {'Pattern'}")
+        print("  " + "─" * 55)
+        for col in schema:
+            name     = col.get("name", "")
+            col_type = col.get("type", "string")
+            nullable = "yes" if col.get("nullable") else "no"
+            pattern  = col.get("pattern", "") or ""
+            print(f"  {name:<20} {col_type:<12} {nullable:<10} {pattern}")
+        print("  " + "─" * 55)
+    else:
+        print("\n  Schema        : Not defined — AI will decide columns")
+
+    print("\n" + "─" * 60)
+
+    confirm = input("  Confirm and generate? (y/n) [y]: ").strip().lower()
+    return confirm in ("", "y", "yes")
+
+
 def display_results(output):
     print("\n" + "=" * 60)
 
     if isinstance(output, dict):
         print(" Generation Summary:")
         for key, value in output.items():
-            print(f"{key}: {value}")
+            print(f"  {key}: {value}")
     else:
         print(" Response:")
         print(output)

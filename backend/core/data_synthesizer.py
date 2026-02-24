@@ -1,8 +1,12 @@
 import json
 import os
+import math
 import pandas as pd
 from datetime import datetime
 from typing import Dict, Any, List
+
+# Max rows per single LLM call — keeps response within token limits
+BATCH_SIZE = 30
 
 from logger.logger import get_logger
 from config.settings import get_settings
@@ -65,19 +69,19 @@ class DataSynthesizer:
             ai_criteria=ai_criteria
         )
 
-        self.logger.info("Invoking LLM...")
+        self.logger.info(f"Invoking LLM... ({rows} rows, batch_size={BATCH_SIZE})")
 
         # -----------------------------
-        # STEP 5: Call LLM
+        # STEP 5: Batch LLM Calls
         # -----------------------------
-        response = self.llm.generate(
-            prompt=prompt,
-            temperature=0.3,
-            max_tokens=4000
+        df = self._generate_in_batches(
+            rows=rows,
+            dataset_name=dataset_name,
+            description=description,
+            resolved_schema=resolved_schema,
+            sample_rows=sample_rows,
+            ai_criteria=ai_criteria
         )
-
-        data = self._parse_llm_response(response)
-        df = pd.DataFrame(data)
 
         # -----------------------------
         # STEP 6: Save
@@ -95,6 +99,39 @@ class DataSynthesizer:
             "columns": list(df.columns),
             "file_path": file_path
         }
+
+    # -------------------------------------------------
+    # BATCH GENERATION
+    # -------------------------------------------------
+    def _generate_in_batches(self, rows, dataset_name, description,
+                              resolved_schema, sample_rows, ai_criteria):
+        """Split large requests into batches of BATCH_SIZE rows each."""
+        num_batches = math.ceil(rows / BATCH_SIZE)
+        all_frames = []
+
+        for batch_num in range(1, num_batches + 1):
+            batch_rows = min(BATCH_SIZE, rows - (batch_num - 1) * BATCH_SIZE)
+            self.logger.info(f"  Batch {batch_num}/{num_batches}: generating {batch_rows} rows...")
+
+            prompt = DatasetPromptBuilder.build(
+                dataset_name=dataset_name,
+                rows=batch_rows,
+                description=description,
+                schema=resolved_schema,
+                sample_rows=sample_rows,
+                ai_criteria=ai_criteria
+            )
+
+            response = self.llm.generate(
+                prompt=prompt,
+                temperature=0.3,
+                max_tokens=5000
+            )
+
+            batch_data = self._parse_llm_response(response)
+            all_frames.append(pd.DataFrame(batch_data))
+
+        return pd.concat(all_frames, ignore_index=True)
 
     # -------------------------------------------------
     # PARSE LLM RESPONSE
@@ -118,7 +155,14 @@ class DataSynthesizer:
         if text.endswith("```"):
             text = text[:text.rfind("```")].strip()
 
-        return json.loads(text)
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as e:
+            # Likely truncated — give a helpful error
+            raise ValueError(
+                f"LLM response was truncated or malformed (JSON error: {e}). "
+                f"Try reducing the number of rows per request or simplify the schema."
+            ) from e
 
     # -------------------------------------------------
     # VALIDATION
@@ -134,8 +178,8 @@ class DataSynthesizer:
         if not isinstance(rows, int):
             raise ValueError("rows must be integer")
 
-        if output_format not in ["csv", "parquet", "json"]:
-            raise ValueError("format must be csv/parquet/json")
+        if output_format not in ["csv", "parquet", "json", "tsv"]:
+            raise ValueError("format must be csv/parquet/json/tsv")
 
     # -------------------------------------------------
     # SCHEMA RESOLUTION

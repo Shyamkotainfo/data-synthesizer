@@ -1,0 +1,6 @@
+user_id,full_name,email,age,is_active
+c227e919-321e-4a7b-89f0-1e2a3b4c5d6e,John Doe,john.doe@example.com,34,True
+a1b2c3d4-e5f6-7g8h-9i0j-k1l2m3n4o5p6,Jane Smith,jane.smith@example.com,28,False
+q1w2e3r4-t5y6-u7i8-o9p0-a1s2d3f4g5h6,Michael Johnson,michael.johnson@example.com,45,True
+zxcvbnmlkjhgfdsa-poiuytrewq-asdfghjkl-zxcvbnm,Emily Davis,emily.davis@example.com,56,False
+12345678-90ab-cdef-ghij-klmnopqrstu,William Brown,william.brown@example.com,39,True

@@ -1,0 +1,11 @@
+user_id,full_name,email,age,city,is_active
+123e4567-e89b-12d3-a456-426614174000,John Doe,john.doe@example.com,28,New York,True
+123e4567-e89b-12d3-a456-426614174001,Jane Smith,jane.smith@example.com,34,Los Angeles,False
+123e4567-e89b-12d3-a456-426614174002,Michael Johnson,michael.johnson@example.com,45,Chicago,True
+123e4567-e89b-12d3-a456-426614174003,Emily Davis,emily.davis@example.com,22,Houston,False
+123e4567-e89b-12d3-a456-426614174004,William Brown,william.brown@example.com,50,Phoenix,True
+123e4567-e89b-12d3-a456-426614174005,Olivia Wilson,olivia.wilson@example.com,31,Philadelphia,False
+123e4567-e89b-12d3-a456-426614174006,James Martinez,james.martinez@example.com,42,San Antonio,True
+123e4567-e89b-12d3-a456-426614174007,Sophia Anderson,sophia.anderson@example.com,29,San Diego,False
+123e4567-e89b-12d3-a456-426614174008,Daniel Taylor,daniel.taylor@example.com,55,Dallas,True
+123e4567-e89b-12d3-a456-426614174009,Isabella Thomas,isabella.thomas@example.com,37,San Jose,False
