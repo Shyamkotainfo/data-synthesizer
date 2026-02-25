@@ -11,7 +11,8 @@ from datetime import datetime
 from typing import Optional, List
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, File, UploadFile
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -294,29 +295,177 @@ def get_history():
     return list(reversed(_history))
 
 
+@app.get("/download/{job_id}", tags=["Generation"])
+def download_file(job_id: str):
+    """
+    Download the generated dataset file by job_id.
+
+    Frontend calls this after POST /generate to let the user download the file.
+    Returns the file as a browser-downloadable attachment.
+    """
+    job = next((h for h in _history if h["job_id"] == job_id), None)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+
+    file_path = job["file_path"]
+
+    # Resolve relative path from backend directory
+    if not os.path.isabs(file_path):
+        backend_dir = os.path.dirname(os.path.abspath(__file__ + "/.."))
+        file_path = os.path.normpath(os.path.join(backend_dir, file_path.lstrip("./")))
+
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+
+    fmt = job.get("format", "csv")
+    media_types = {
+        "csv":     "text/csv",
+        "json":    "application/json",
+        "parquet": "application/octet-stream",
+        "tsv":     "text/tab-separated-values"
+    }
+
+    return FileResponse(
+        path=file_path,
+        filename=os.path.basename(file_path),
+        media_type=media_types.get(fmt, "application/octet-stream")
+    )
+
+
+@app.post("/schema/upload", tags=["Schema"])
+async def upload_schema_file(file: UploadFile = File(...)):
+    """
+    Upload a schema file and get back columns + sample rows.
+
+    Supported formats:
+      - .json  → reads columns array directly
+      - .csv   → auto-infers schema from column names/types + extracts 5 sample rows
+
+    Returns:
+      {
+        filename, file_type, columns_count,
+        columns: [...],       ← pass this to POST /generate as 'columns'
+        sample_rows: [...]    ← optional, only for CSV uploads
+      }
+    """
+    import io
+    import pandas as pd
+
+    filename = file.filename or ""
+    contents = await file.read()
+
+    # ─── JSON Schema File ───────────────────────────────────────
+    if filename.endswith(".json"):
+        try:
+            schema = json.loads(contents.decode("utf-8"))
+        except json.JSONDecodeError as e:
+            raise HTTPException(400, detail=f"Invalid JSON: {e}")
+
+        if not isinstance(schema, list):
+            raise HTTPException(400, detail="JSON schema must be an array of column objects")
+
+        for i, col in enumerate(schema):
+            if not isinstance(col, dict) or "name" not in col:
+                raise HTTPException(400, detail=f"Column {i} must be an object with a 'name' field")
+
+        return {
+            "filename": filename,
+            "file_type": "json",
+            "columns_count": len(schema),
+            "columns": schema,
+            "sample_rows": None
+        }
+
+    # ─── CSV File → Extract Schema + Sample Rows ────────────────
+    elif filename.endswith(".csv"):
+        try:
+            df = pd.read_csv(io.BytesIO(contents))
+        except Exception as e:
+            raise HTTPException(400, detail=f"Could not read CSV: {e}")
+
+        if df.empty:
+            raise HTTPException(400, detail="CSV file is empty")
+
+        # Dtype → column type mapping
+        dtype_map = {
+            "object":          "string",
+            "int64":           "integer",
+            "int32":           "integer",
+            "float64":         "float",
+            "float32":         "float",
+            "bool":            "boolean",
+            "datetime64[ns]":  "datetime",
+        }
+
+        columns = []
+        for col_name, dtype in df.dtypes.items():
+            col_type = dtype_map.get(str(dtype), "string")
+
+            # Detect email-like columns by name
+            name_lower = col_name.lower()
+            if "email" in name_lower:
+                col_type = "email"
+            elif "phone" in name_lower or "mobile" in name_lower:
+                col_type = "phone"
+            elif "date" in name_lower or "time" in name_lower:
+                col_type = "date"
+            elif "uuid" in name_lower or "id" == name_lower:
+                col_type = "uuid"
+            elif "url" in name_lower or "link" in name_lower:
+                col_type = "url"
+
+            # Detect nullable: if any value is null in CSV
+            has_nulls = df[col_name].isnull().any()
+
+            columns.append({
+                "name": col_name,
+                "type": col_type,
+                "nullable": bool(has_nulls)
+            })
+
+        # Extract up to 5 sample rows
+        sample_rows = df.head(5).fillna("").to_dict(orient="records")
+
+        return {
+            "filename": filename,
+            "file_type": "csv",
+            "total_rows_in_file": len(df),
+            "columns_count": len(columns),
+            "columns": columns,
+            "sample_rows": sample_rows
+        }
+
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type '{filename}'. Upload a .json or .csv file."
+        )
+
+
 @app.get("/schema/sample", tags=["Schema"])
 def get_sample_schema():
     """Returns a sample schema JSON you can use as a template"""
     return [
-        {"name": "id",         "type": "uuid",    "nullable": False},
-        {"name": "full_name",  "type": "name",    "nullable": False},
-        {"name": "email",      "type": "email",   "nullable": False},
-        {"name": "age",        "type": "integer", "nullable": False, "pattern": "18-65"},
-        {"name": "city",       "type": "string",  "nullable": True},
-        {"name": "signup_date","type": "date",    "nullable": False,
+        {"name": "id",          "type": "uuid",    "nullable": False},
+        {"name": "full_name",   "type": "name",    "nullable": False},
+        {"name": "email",       "type": "email",   "nullable": False},
+        {"name": "age",         "type": "integer", "nullable": False, "pattern": "18-65"},
+        {"name": "city",        "type": "string",  "nullable": True},
+        {"name": "signup_date", "type": "date",    "nullable": False,
          "pattern": "2020-01-01 to 2025-12-31"},
-        {"name": "is_active",  "type": "boolean", "nullable": False}
+        {"name": "is_active",   "type": "boolean", "nullable": False}
     ]
 
 
 @app.get("/schema/types", tags=["Schema"])
 def get_supported_types():
-    """Lists all supported column types"""
+    """Lists all supported column types, distributions, and output formats"""
     return {
         "types": [
             "string", "integer", "float", "boolean",
             "date", "datetime", "email", "phone",
             "uuid", "name", "address", "url"
         ],
-        "distributions": ["uniform", "normal", "skewed", "random"]
+        "distributions": ["uniform", "normal", "skewed", "random"],
+        "formats": ["csv", "json", "parquet", "tsv"]
     }

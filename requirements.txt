@@ -3,3 +3,6 @@ pandas
 pyarrow
 python-dotenv
 rich
+pydantic-settings
+fastapi
+uvicorn
