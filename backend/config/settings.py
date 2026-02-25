@@ -49,6 +49,12 @@ class Settings(BaseSettings):
         env="BEDROCK_EMBEDDING_MODEL"
     )
 
+    # -------------------- DynamoDB --------------------
+    dynamo_history_table: str = Field(
+        default="data_synthesizer_history",
+        env="DYNAMO_HISTORY_TABLE"
+    )
+
     # -------------------- Validators --------------------
 
     @field_validator("environment")

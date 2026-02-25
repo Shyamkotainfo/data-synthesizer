@@ -7,6 +7,7 @@ import sys
 import os
 import json
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional, List
 from pathlib import Path
@@ -23,6 +24,7 @@ from core.data_synthesizer import DataSynthesizer
 from core.input_processor import InputProcessor
 from config.settings import get_settings
 from logger.logger import get_logger
+from db.dynamo_history import DynamoHistory
 
 # ─────────────────────────────────────────
 # App Setup
@@ -31,22 +33,37 @@ from logger.logger import get_logger
 settings = get_settings()
 logger = get_logger(__name__)
 
+# ─────────────────────────────────────────
+# DynamoDB history store
+# ─────────────────────────────────────────
+db = DynamoHistory()
+
+
+@asynccontextmanager
+async def lifespan(app):
+    """Run on startup: ensure DynamoDB table exists"""
+    try:
+        DynamoHistory.create_table_if_not_exists()
+        logger.info(f"DynamoDB history table ready: {settings.dynamo_history_table}")
+    except Exception as e:
+        logger.warning(f"DynamoDB table setup failed (history may not persist): {e}")
+    yield
+
+
 app = FastAPI(
     title="Data Synthesizer API",
     description="Generate synthetic datasets using AWS Bedrock AI",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],       # Tighten in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# In-memory generation history
-_history: List[dict] = []
 
 
 # ─────────────────────────────────────────
@@ -260,8 +277,8 @@ def generate_dataset(req: GenerateRequest):
         os.remove(file_path)
         file_path = tsv_path
 
-    job_id = str(uuid.uuid4())
-    generated_at = datetime.now().isoformat()
+    job_id = result["job_id"]
+    generated_at = result["generated_at"]
 
     response = GenerateResponse(
         job_id=job_id,
@@ -273,26 +290,18 @@ def generate_dataset(req: GenerateRequest):
         generated_at=generated_at
     )
 
-    # Save to history
-    _history.append({
-        "job_id": job_id,
-        "dataset_name": result["dataset_name"],
-        "rows": result["rows_generated"],
-        "format": req.format,
-        "columns": result["columns"],
-        "file_path": file_path,
-        "generated_at": generated_at,
-        "status": "success"
-    })
-
     logger.info(f"Generation complete: {file_path}")
     return response
 
 
 @app.get("/history", response_model=List[HistoryItem], tags=["Generation"])
 def get_history():
-    """Return all past generation runs (in-memory, resets on restart)"""
-    return list(reversed(_history))
+    """Return all past generation runs from DynamoDB (persists across restarts)"""
+    try:
+        return db.get_all_jobs()
+    except Exception as e:
+        logger.error(f"DynamoDB scan failed: {e}")
+        raise HTTPException(status_code=503, detail=f"History unavailable: {e}")
 
 
 @app.get("/download/{job_id}", tags=["Generation"])
@@ -303,7 +312,13 @@ def download_file(job_id: str):
     Frontend calls this after POST /generate to let the user download the file.
     Returns the file as a browser-downloadable attachment.
     """
-    job = next((h for h in _history if h["job_id"] == job_id), None)
+    job = None
+    try:
+        job = db.get_job(job_id)
+    except Exception as e:
+        logger.error(f"DynamoDB get_job failed: {e}")
+        raise HTTPException(status_code=503, detail=f"Could not look up job: {e}")
+
     if not job:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
 

@@ -1,6 +1,7 @@
 import json
 import os
 import math
+import uuid as uuid_lib
 import pandas as pd
 from datetime import datetime
 from typing import Dict, Any, List
@@ -12,6 +13,7 @@ from logger.logger import get_logger
 from config.settings import get_settings
 from llm.llm import LLMQuery
 from prompt.dataset_prompt import DatasetPromptBuilder
+from db.dynamo_history import DynamoHistory
 
 
 class DataSynthesizer:
@@ -20,6 +22,7 @@ class DataSynthesizer:
         self.logger = get_logger(__name__)
         self.settings = get_settings()
         self.llm = LLMQuery()
+        self._db = DynamoHistory()
 
     # -------------------------------------------------
     # PUBLIC ENTRY
@@ -84,7 +87,7 @@ class DataSynthesizer:
         )
 
         # -----------------------------
-        # STEP 6: Save
+        # STEP 6: Save File
         # -----------------------------
         file_path = self._save(
             df=df,
@@ -93,11 +96,34 @@ class DataSynthesizer:
             target_location=target_location
         )
 
-        return {
+        # -----------------------------
+        # STEP 7: Persist to DynamoDB
+        # -----------------------------
+        job_id = str(uuid_lib.uuid4())
+        generated_at = datetime.now().isoformat()
+
+        job_record = {
+            "job_id":       job_id,
             "dataset_name": dataset_name,
+            "rows":         len(df),
+            "format":       output_format,
+            "columns":      list(df.columns),
+            "file_path":    file_path,
+            "generated_at": generated_at,
+            "status":       "success"
+        }
+        try:
+            self._db.save_job(job_record)
+        except Exception as e:
+            self.logger.warning(f"DynamoDB save failed (non-fatal): {e}")
+
+        return {
+            "job_id":         job_id,
+            "dataset_name":   dataset_name,
             "rows_generated": len(df),
-            "columns": list(df.columns),
-            "file_path": file_path
+            "columns":        list(df.columns),
+            "file_path":      file_path,
+            "generated_at":   generated_at,
         }
 
     # -------------------------------------------------

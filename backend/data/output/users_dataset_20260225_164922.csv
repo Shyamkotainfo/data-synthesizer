@@ -1,0 +1,11 @@
+user_id,full_name,email,age,city,is_active
+f47ac10b-58cc-4372-a567-0e02b2c3d479,John Doe,john.doe@example.com,34,New York,True
+c564e8f9-3b2c-4d5e-8f1a-2b3c4d5e6f78,Jane Smith,jane.smith@example.com,28,Los Angeles,False
+a1b2c3d4-e5f6-7g8h-9i0j-k1l2m3n4o5p6,Michael Johnson,michael.johnson@example.com,45,Chicago,True
+z9y8x7w6-v5u4-t3s2-r1q0-p9o8i7u6y5r4,Emily Davis,emily.davis@example.com,22,Houston,True
+n4m5o6p7-q8r9-s0t1-u2v3-w4x5y6z7a8b9,William Brown,william.brown@example.com,50,Phoenix,False
+1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6,Olivia Wilson,olivia.wilson@example.com,30,Philadelphia,True
+q2w3e4r5-t6y7-u8i9-o0p1-a2s3d4f5g6h7,James Taylor,james.taylor@example.com,55,San Antonio,False
+zx9y8c7b6-a5s4-d3f2-g1h0-j9k8l7m6n5o4,Sophia Anderson,sophia.anderson@example.com,29,San Diego,True
+p0o9i8u7-y6t5-r4e3-w2q1-a0s9d8f7g6h5,Daniel Martinez,daniel.martinez@example.com,40,Dallas,True
+l1k2j3i4-h5g6-f7d8-s9a0-z1x2c3v4b5n6,Isabella Thomas,isabella.thomas@example.com,33,San Jose,False
