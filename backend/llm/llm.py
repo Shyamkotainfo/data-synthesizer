@@ -24,7 +24,7 @@ def invoke_llm(
     model_id = model_id or settings.bedrock_model
     client = get_llm_client()
 
-    logger.info(f"Invoking Bedrock model: {model_id}")
+    logger.debug(f"Invoking Bedrock model: {model_id}")
 
     response = client.invoke_model(
         modelId=model_id,

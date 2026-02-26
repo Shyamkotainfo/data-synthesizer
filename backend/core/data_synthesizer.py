@@ -1,119 +1,132 @@
-import json
-import os
-import math
-import uuid as uuid_lib
-import pandas as pd
-from datetime import datetime
-from typing import Dict, Any, List
+"""
+core/data_synthesizer.py
 
-# Max rows per single LLM call — keeps response within token limits
-BATCH_SIZE = 30
+Orchestrates the full synthetic data generation pipeline.
+Delegates each responsibility to a focused sub-module:
+
+  SchemaResolver  → determine which column schema to use
+  BatchRunner     → parallel LLM calls, retry, post-process
+  FileWriter      → save output in the requested format
+  DynamoHistory   → persist job record to DynamoDB
+"""
+
+import uuid as uuid_lib
+from datetime import datetime
+from typing import Dict, Any
 
 from logger.logger import get_logger
 from config.settings import get_settings
-from llm.llm import LLMQuery
-from prompt.dataset_prompt import DatasetPromptBuilder
+from core.batch_runner import BatchRunner
+from core.schema_resolver import SchemaResolver
+from core.file_writer import FileWriter
+from core.data_quality import DataQualityChecker
 from db.dynamo_history import DynamoHistory
 
 
 class DataSynthesizer:
+    """
+    Entry point for data generation.
+    Call generate(request) — everything else is handled internally.
+    """
 
     def __init__(self):
         self.logger = get_logger(__name__)
         self.settings = get_settings()
-        self.llm = LLMQuery()
+        self._runner = BatchRunner()
         self._db = DynamoHistory()
 
-    # -------------------------------------------------
-    # PUBLIC ENTRY
-    # -------------------------------------------------
-    def generate(self, request: Dict[str, Any]):
+    def generate(self, request: Dict[str, Any]) -> Dict:
+        """
+        Generate a synthetic dataset from the given request dict.
 
-        # -----------------------------
-        # STEP 1: Extract Fields
-        # -----------------------------
-        dataset_name = request.get("dataset_name")
-        rows = request.get("rows")
-        description = request.get("description")
-        schema = request.get("schema")
-        sample_schema_file = request.get("sample_schema_file")
-        sample_rows = request.get("sample_rows")
-        ai_criteria = request.get("ai_criteria")
-        output_format = request.get("format")
+        Required keys:
+            dataset_name (str), rows (int), format (str)
+
+        Optional keys:
+            description, schema, schema_file, sample_rows,
+            ai_criteria, target_location
+
+        Returns:
+            {job_id, dataset_name, rows_generated, columns,
+             file_path, generated_at}
+        """
+
+        # ── Extract request fields ───────────────────────────────
+        dataset_name    = request.get("dataset_name")
+        rows            = request.get("rows")
+        description     = request.get("description")
+        schema          = request.get("schema")
+        schema_file     = request.get("schema_file")
+        sample_rows     = request.get("sample_rows")
+        ai_criteria     = request.get("ai_criteria")
+        output_format   = request.get("format", "csv")
         target_location = request.get("target_location")
 
-        # -----------------------------
-        # STEP 2: Validate Mandatory
-        # -----------------------------
+        # ── Validate ─────────────────────────────────────────────
         self._validate(dataset_name, rows, output_format)
 
-        # -----------------------------
-        # STEP 3: Resolve Schema Priority
-        # Priority:
-        # 1. schema (direct input)
-        # 2. sample_schema_file
-        # 3. infer from sample_rows
-        # -----------------------------
-        resolved_schema = self._resolve_schema(
+        # ── Resolve schema ────────────────────────────────────────
+        resolved_schema = SchemaResolver.resolve(
             schema=schema,
-            sample_schema_file=sample_schema_file,
+            schema_file=schema_file,
             sample_rows=sample_rows
         )
 
-        # -----------------------------
-        # STEP 4: Build Prompt
-        # -----------------------------
-        prompt = DatasetPromptBuilder.build(
-            dataset_name=dataset_name,
+        # ── Schema discovery (when no schema given) ───────────────
+        # Run ONE LLM call to define a consistent schema upfront.
+        # Without this, each parallel batch invents its own columns
+        # → inconsistent column sets → massive NaN when merged.
+        if resolved_schema is None:
+            resolved_schema = self._discover_schema(
+                dataset_name=dataset_name,
+                description=description,
+                ai_criteria=ai_criteria
+            )
+
+        # ── Generate in parallel batches ─────────────────────────
+        self.logger.info(
+            f"Starting generation: {dataset_name!r} | "
+            f"{rows:,} rows | format={output_format}"
+        )
+        df = self._runner.run(
             rows=rows,
+            dataset_name=dataset_name,
             description=description,
             schema=resolved_schema,
             sample_rows=sample_rows,
             ai_criteria=ai_criteria
         )
 
-        self.logger.info(f"Invoking LLM... ({rows} rows, batch_size={BATCH_SIZE})")
-
-        # -----------------------------
-        # STEP 5: Batch LLM Calls
-        # -----------------------------
-        df = self._generate_in_batches(
-            rows=rows,
-            dataset_name=dataset_name,
-            description=description,
-            resolved_schema=resolved_schema,
-            sample_rows=sample_rows,
-            ai_criteria=ai_criteria
-        )
-
-        # -----------------------------
-        # STEP 6: Save File
-        # -----------------------------
-        file_path = self._save(
+        # ── Save to disk ─────────────────────────────────────────
+        file_path = FileWriter.save(
             df=df,
             dataset_name=dataset_name,
             fmt=output_format,
+            output_dir=self.settings.output_dir,
             target_location=target_location
         )
 
-        # -----------------------------
-        # STEP 7: Persist to DynamoDB
-        # -----------------------------
+        # ── Data quality checks ───────────────────────────────────
+        quality_report = DataQualityChecker(
+            df=df,
+            schema=resolved_schema,
+            expected_rows=rows
+        ).run()
+
         job_id = str(uuid_lib.uuid4())
         generated_at = datetime.now().isoformat()
 
-        job_record = {
-            "job_id":       job_id,
-            "dataset_name": dataset_name,
-            "rows":         len(df),
-            "format":       output_format,
-            "columns":      list(df.columns),
-            "file_path":    file_path,
-            "generated_at": generated_at,
-            "status":       "success"
-        }
         try:
-            self._db.save_job(job_record)
+            self._db.save_job({
+                "job_id":       job_id,
+                "dataset_name": dataset_name,
+                "rows":         len(df),
+                "format":       output_format,
+                "columns":      list(df.columns),
+                "file_path":    file_path,
+                "generated_at": generated_at,
+                "status":       "success"
+            })
         except Exception as e:
             self.logger.warning(f"DynamoDB save failed (non-fatal): {e}")
 
@@ -124,131 +137,64 @@ class DataSynthesizer:
             "columns":        list(df.columns),
             "file_path":      file_path,
             "generated_at":   generated_at,
+            "quality_report": quality_report,
         }
 
-    # -------------------------------------------------
-    # BATCH GENERATION
-    # -------------------------------------------------
-    def _generate_in_batches(self, rows, dataset_name, description,
-                              resolved_schema, sample_rows, ai_criteria):
-        """Split large requests into batches of BATCH_SIZE rows each."""
-        num_batches = math.ceil(rows / BATCH_SIZE)
-        all_frames = []
+    # ── Input validation ─────────────────────────────────────────
+    def _validate(self, dataset_name: str, rows: int, output_format: str):
+        if not dataset_name:
+            raise ValueError("dataset_name is required")
+        if not rows:
+            raise ValueError("rows is required")
+        if not isinstance(rows, int) or rows <= 0:
+            raise ValueError("rows must be a positive integer")
+        if output_format not in {"csv", "parquet", "json", "tsv"}:
+            raise ValueError("format must be one of: csv, parquet, json, tsv")
 
-        for batch_num in range(1, num_batches + 1):
-            batch_rows = min(BATCH_SIZE, rows - (batch_num - 1) * BATCH_SIZE)
-            self.logger.info(f"  Batch {batch_num}/{num_batches}: generating {batch_rows} rows...")
-
-            prompt = DatasetPromptBuilder.build(
-                dataset_name=dataset_name,
-                rows=batch_rows,
-                description=description,
-                schema=resolved_schema,
-                sample_rows=sample_rows,
-                ai_criteria=ai_criteria
-            )
-
-            response = self.llm.generate(
-                prompt=prompt,
-                temperature=0.3,
-                max_tokens=5000
-            )
-
-            batch_data = self._parse_llm_response(response)
-            all_frames.append(pd.DataFrame(batch_data))
-
-        return pd.concat(all_frames, ignore_index=True)
-
-    # -------------------------------------------------
-    # PARSE LLM RESPONSE
-    # -------------------------------------------------
-    def _parse_llm_response(self, response: str):
+    # ── Schema discovery ─────────────────────────────────────────
+    def _discover_schema(self, dataset_name: str, description=None, ai_criteria=None):
         """
-        Strip markdown code fences if present, then parse JSON.
-        Handles responses like:
-            ```json
-            [ {...} ]
-            ```
+        Ask the LLM to define a consistent schema before batch generation.
+        Called only when the user provides no schema.
+        Ensures all parallel batches use identical columns → no NaN columns.
         """
+        from llm.llm import LLMQuery
+        from prompt.dataset_prompt import DatasetPromptBuilder
+        import json
+
+        self.logger.info("No schema provided — discovering schema via LLM...")
+        prompt = DatasetPromptBuilder.build_schema_discovery(
+            dataset_name=dataset_name,
+            description=description,
+            ai_criteria=ai_criteria
+        )
+        llm = LLMQuery()
+        response = llm.generate(prompt=prompt, temperature=0.1, max_tokens=1000)
+
+        # Strip fences and parse
         text = response.strip()
-
-        # Remove opening fence (```json or ```)
         if text.startswith("```"):
-            # Drop the first line (the fence line)
             text = text[text.find("\n") + 1:]
-
-        # Remove closing fence
         if text.endswith("```"):
             text = text[:text.rfind("```")].strip()
 
         try:
-            return json.loads(text)
-        except json.JSONDecodeError as e:
-            # Likely truncated — give a helpful error
-            raise ValueError(
-                f"LLM response was truncated or malformed (JSON error: {e}). "
-                f"Try reducing the number of rows per request or simplify the schema."
-            ) from e
-
-    # -------------------------------------------------
-    # VALIDATION
-    # -------------------------------------------------
-    def _validate(self, dataset_name, rows, output_format):
-
-        if not dataset_name:
-            raise ValueError("dataset_name is mandatory")
-
-        if not rows:
-            raise ValueError("rows is mandatory")
-
-        if not isinstance(rows, int):
-            raise ValueError("rows must be integer")
-
-        if output_format not in ["csv", "parquet", "json", "tsv"]:
-            raise ValueError("format must be csv/parquet/json/tsv")
-
-    # -------------------------------------------------
-    # SCHEMA RESOLUTION
-    # -------------------------------------------------
-    def _resolve_schema(self,
-                        schema: List[Dict] = None,
-                        sample_schema_file: str = None,
-                        sample_rows: List[Dict] = None):
-
-        if schema:
+            schema = json.loads(text)
+            if not isinstance(schema, list):
+                raise ValueError("Schema discovery returned non-list")
+            col_names = [c.get("name") for c in schema]
+            self.logger.info(
+                f"Schema discovered: {len(schema)} columns → {col_names}"
+            )
             return schema
-
-        if sample_schema_file:
-            with open(sample_schema_file, "r") as f:
-                return json.load(f)
-
-        if sample_rows:
-            # Infer schema from sample rows
+        except Exception as e:
+            self.logger.warning(
+                f"Schema discovery failed ({e}) — falling back to 5-column default"
+            )
             return [
-                {"name": k, "type": type(v).__name__}
-                for k, v in sample_rows[0].items()
+                {"name": "id",         "type": "uuid",    "nullable": False},
+                {"name": "name",       "type": "name",    "nullable": False},
+                {"name": "email",      "type": "email",   "nullable": False},
+                {"name": "created_at", "type": "date",    "nullable": False},
+                {"name": "status",     "type": "string",  "nullable": True},
             ]
-
-        return None
-
-    # -------------------------------------------------
-    # SAVE
-    # -------------------------------------------------
-    def _save(self, df, dataset_name, fmt, target_location=None):
-
-        base_path = target_location or self.settings.output_dir
-        os.makedirs(base_path, exist_ok=True)
-
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        path = f"{base_path}/{dataset_name}_{timestamp}.{fmt}"
-
-        if fmt == "csv":
-            df.to_csv(path, index=False)
-
-        elif fmt == "parquet":
-            df.to_parquet(path, index=False)
-
-        elif fmt == "json":
-            df.to_json(path, orient="records", indent=2)
-
-        return path
