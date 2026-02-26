@@ -15,10 +15,13 @@ class InputProcessor:
             "rows": int(raw_input.get("rows")),
             "description": raw_input.get("description"),
             "format": raw_input.get("format"),
+            "mode": raw_input.get("mode", "sdv"),
+            "synthesizer": raw_input.get("synthesizer", "gaussian_copula"),
             "ai_criteria": raw_input.get("ai_criteria"),
             "target_location": raw_input.get("target_location"),
             "schema": None,
-            "sample_rows": None
+            "sample_rows": None,
+            "sample_df": raw_input.get("sample_df"),   # DataFrame for SDV training
         }
 
         # Handle schema file
@@ -30,13 +33,22 @@ class InputProcessor:
         if raw_input.get("schema"):
             request["schema"] = raw_input["schema"]
 
-        # Handle sample file
+        # Handle sample file — for LLM mode: load as rows; for SDV mode: load as DataFrame
         if raw_input.get("sample_file"):
-            request["sample_rows"] = self._load_sample_file(
-                raw_input["sample_file"]
-            )
+            path = raw_input["sample_file"]
+            if path.endswith(".csv"):
+                df = pd.read_csv(path)
+                request["sample_df"] = df         # full DataFrame for SDV training
+                request["sample_rows"] = df.head(5).to_dict(orient="records")
+            elif path.endswith(".json"):
+                with open(path, "r") as f:
+                    rows = json.load(f)
+                request["sample_rows"] = rows
+                request["sample_df"] = pd.DataFrame(rows)
+            else:
+                raise ValueError("Unsupported sample file format: use .csv or .json")
 
-        # Handle pasted sample rows
+        # Handle pasted sample rows (LLM mode)
         if raw_input.get("sample_rows"):
             request["sample_rows"] = raw_input["sample_rows"]
 

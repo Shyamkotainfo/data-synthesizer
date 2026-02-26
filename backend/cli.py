@@ -38,6 +38,9 @@ def main():
     print("Type 'generate' to create dataset")
     print("Type 'exit' to stop")
     print("=" * 60)
+    print("  Modes: sdv (default) | llm (legacy Bedrock)")
+    print("  SDV synthesizers: gaussian_copula | ctgan | tvae | copula_gan")
+    print("=" * 60)
 
     synthesizer = DataSynthesizer()
     input_processor = InputProcessor()
@@ -64,8 +67,12 @@ def main():
                     print("  ↩ Generation cancelled.")
                     continue
 
-                # STEP 2: Call LLM and generate
-                print("\n  Generating... (calling Bedrock LLM)")
+                # STEP 2: Generate
+                mode = request.get("mode", "sdv")
+                if mode == "sdv":
+                    print("\n  Generating... (SDV mode — training synthesizer on seed data)")
+                else:
+                    print("\n  Generating... (LLM mode — calling Bedrock)")
                 output = synthesizer.generate(request)
                 display_results(output)
             else:
@@ -91,6 +98,9 @@ def show_preview(request: dict) -> bool:
     print(f"  Dataset Name  : {request.get('dataset_name')}")
     print(f"  Rows          : {request.get('rows')}")
     print(f"  Format        : {request.get('format')}")
+    mode = request.get('mode', 'sdv')
+    synth = request.get('synthesizer', 'gaussian_copula')
+    print(f"  Mode          : {mode}" + (f" ({synth})" if mode == 'sdv' else ""))
 
     if request.get("description"):
         print(f"  Description   : {request['description']}")

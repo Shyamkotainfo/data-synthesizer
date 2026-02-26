@@ -1,119 +1,153 @@
-import json
-import os
-import math
-import uuid as uuid_lib
-import pandas as pd
-from datetime import datetime
-from typing import Dict, Any, List
+"""
+core/data_synthesizer.py
 
-# Max rows per single LLM call — keeps response within token limits
-BATCH_SIZE = 30
+Orchestrates the full synthetic data generation pipeline.
+
+Supports two modes:
+  mode='sdv' (default) — Train an SDV statistical model on seed data,
+                         then sample N rows instantly.
+  mode='llm'           — Parallel LLM batch generation (legacy pipeline).
+
+SDV flow:
+  1. Resolve / discover schema
+  2. Get seed data (user-provided sample OR LLM-generated 50-row seed)
+  3. Build SDV Metadata from schema
+  4. Train synthesizer (gaussian_copula | ctgan | tvae | copula_gan)
+  5. Sample N rows
+  6. Post-process (UUID replacement, dedup)
+  7. Quality check → save file → DynamoDB
+
+LLM flow (unchanged):
+  1-3: same as above
+  4. BatchRunner parallel LLM calls
+  5-7: same
+"""
+
+import uuid as uuid_lib
+from datetime import datetime
+from typing import Dict, Any, Optional
+
+import pandas as pd
 
 from logger.logger import get_logger
 from config.settings import get_settings
-from llm.llm import LLMQuery
-from prompt.dataset_prompt import DatasetPromptBuilder
+from core.schema_resolver import SchemaResolver
+from core.file_writer import FileWriter
+from core.data_quality import DataQualityChecker
 from db.dynamo_history import DynamoHistory
 
 
 class DataSynthesizer:
+    """Entry point for data generation. Call generate(request)."""
 
     def __init__(self):
         self.logger = get_logger(__name__)
         self.settings = get_settings()
-        self.llm = LLMQuery()
         self._db = DynamoHistory()
 
-    # -------------------------------------------------
-    # PUBLIC ENTRY
-    # -------------------------------------------------
-    def generate(self, request: Dict[str, Any]):
+    # ── Public API ────────────────────────────────────────────────
+    def generate(self, request: Dict[str, Any]) -> Dict:
+        """
+        Generate a synthetic dataset.
 
-        # -----------------------------
-        # STEP 1: Extract Fields
-        # -----------------------------
-        dataset_name = request.get("dataset_name")
-        rows = request.get("rows")
-        description = request.get("description")
-        schema = request.get("schema")
-        sample_schema_file = request.get("sample_schema_file")
-        sample_rows = request.get("sample_rows")
-        ai_criteria = request.get("ai_criteria")
-        output_format = request.get("format")
+        Key request fields:
+            dataset_name (str)   — required
+            rows         (int)   — required
+            format       (str)   — csv | json | parquet | tsv (default csv)
+            mode         (str)   — 'sdv' (default) | 'llm'
+            synthesizer  (str)   — gaussian_copula | ctgan | tvae | copula_gan
+            schema       (list)  — optional explicit column definitions
+            sample_df    (DataFrame) — optional real data to train SDV on
+            description  (str)   — optional dataset description
+            ai_criteria  (str)   — optional extra LLM criteria
+            target_location (str) — optional output path override
+        """
+        dataset_name    = request.get("dataset_name")
+        rows            = request.get("rows")
+        description     = request.get("description")
+        schema          = request.get("schema")
+        schema_file     = request.get("schema_file")
+        sample_rows     = request.get("sample_rows")        # for LLM mode
+        sample_df       = request.get("sample_df")          # for SDV mode (DataFrame)
+        ai_criteria     = request.get("ai_criteria")
+        output_format   = request.get("format", "csv")
         target_location = request.get("target_location")
+        mode            = request.get("mode", "sdv").lower()
+        synthesizer_type = request.get("synthesizer", "gaussian_copula")
 
-        # -----------------------------
-        # STEP 2: Validate Mandatory
-        # -----------------------------
-        self._validate(dataset_name, rows, output_format)
+        self._validate(dataset_name, rows, output_format, mode)
 
-        # -----------------------------
-        # STEP 3: Resolve Schema Priority
-        # Priority:
-        # 1. schema (direct input)
-        # 2. sample_schema_file
-        # 3. infer from sample_rows
-        # -----------------------------
-        resolved_schema = self._resolve_schema(
+        # ── Resolve schema ────────────────────────────────────────
+        resolved_schema = SchemaResolver.resolve(
             schema=schema,
-            sample_schema_file=sample_schema_file,
+            schema_file=schema_file,
             sample_rows=sample_rows
         )
+        if resolved_schema is None:
+            resolved_schema = self._discover_schema(
+                dataset_name=dataset_name,
+                description=description,
+                ai_criteria=ai_criteria
+            )
 
-        # -----------------------------
-        # STEP 4: Build Prompt
-        # -----------------------------
-        prompt = DatasetPromptBuilder.build(
-            dataset_name=dataset_name,
-            rows=rows,
-            description=description,
-            schema=resolved_schema,
-            sample_rows=sample_rows,
-            ai_criteria=ai_criteria
+        # ── Route by mode ─────────────────────────────────────────
+        self.logger.info(
+            f"[{mode.upper()}] Generating {dataset_name!r} | "
+            f"{rows:,} rows | format={output_format}"
         )
 
-        self.logger.info(f"Invoking LLM... ({rows} rows, batch_size={BATCH_SIZE})")
+        if mode == "sdv":
+            df = self._generate_sdv(
+                rows=rows,
+                dataset_name=dataset_name,
+                description=description,
+                schema=resolved_schema,
+                sample_df=sample_df,
+                ai_criteria=ai_criteria,
+                synthesizer_type=synthesizer_type
+            )
+        else:
+            df = self._generate_llm(
+                rows=rows,
+                dataset_name=dataset_name,
+                description=description,
+                schema=resolved_schema,
+                sample_rows=sample_rows,
+                ai_criteria=ai_criteria
+            )
 
-        # -----------------------------
-        # STEP 5: Batch LLM Calls
-        # -----------------------------
-        df = self._generate_in_batches(
-            rows=rows,
-            dataset_name=dataset_name,
-            description=description,
-            resolved_schema=resolved_schema,
-            sample_rows=sample_rows,
-            ai_criteria=ai_criteria
-        )
-
-        # -----------------------------
-        # STEP 6: Save File
-        # -----------------------------
-        file_path = self._save(
+        # ── Save to disk ─────────────────────────────────────────
+        file_path = FileWriter.save(
             df=df,
             dataset_name=dataset_name,
             fmt=output_format,
+            output_dir=self.settings.output_dir,
             target_location=target_location
         )
 
-        # -----------------------------
-        # STEP 7: Persist to DynamoDB
-        # -----------------------------
+        # ── Quality checks ────────────────────────────────────────
+        quality_report = DataQualityChecker(
+            df=df,
+            schema=resolved_schema,
+            expected_rows=rows
+        ).run()
+
+        # ── Persist to DynamoDB ───────────────────────────────────
         job_id = str(uuid_lib.uuid4())
         generated_at = datetime.now().isoformat()
-
-        job_record = {
-            "job_id":       job_id,
-            "dataset_name": dataset_name,
-            "rows":         len(df),
-            "format":       output_format,
-            "columns":      list(df.columns),
-            "file_path":    file_path,
-            "generated_at": generated_at,
-            "status":       "success"
-        }
         try:
-            self._db.save_job(job_record)
+            self._db.save_job({
+                "job_id":           job_id,
+                "dataset_name":     dataset_name,
+                "rows":             len(df),
+                "format":           output_format,
+                "columns":          list(df.columns),
+                "file_path":        file_path,
+                "generated_at":     generated_at,
+                "mode":             mode,
+                "synthesizer_type": synthesizer_type if mode == "sdv" else "llm",
+                "status":           "success"
+            })
         except Exception as e:
             self.logger.warning(f"DynamoDB save failed (non-fatal): {e}")
 
@@ -124,131 +158,168 @@ class DataSynthesizer:
             "columns":        list(df.columns),
             "file_path":      file_path,
             "generated_at":   generated_at,
+            "mode":           mode,
+            "quality_report": quality_report,
         }
 
-    # -------------------------------------------------
-    # BATCH GENERATION
-    # -------------------------------------------------
-    def _generate_in_batches(self, rows, dataset_name, description,
-                              resolved_schema, sample_rows, ai_criteria):
-        """Split large requests into batches of BATCH_SIZE rows each."""
-        num_batches = math.ceil(rows / BATCH_SIZE)
-        all_frames = []
+    # ── SDV generation ────────────────────────────────────────────
+    def _generate_sdv(
+        self,
+        rows: int,
+        dataset_name: str,
+        description: Optional[str],
+        schema,
+        sample_df: Optional[pd.DataFrame],
+        ai_criteria: Optional[str],
+        synthesizer_type: str
+    ) -> pd.DataFrame:
+        """
+        SDV pipeline:
+          1. Get seed data (user-provided OR LLM-generated 50-row seed)
+          2. Build SDV Metadata
+          3. Train synthesizer
+          4. Sample N rows
+          5. Post-process (UUID, dedup)
+        """
+        from core.sdv_synthesizer import SDVSynthesizer
 
-        for batch_num in range(1, num_batches + 1):
-            batch_rows = min(BATCH_SIZE, rows - (batch_num - 1) * BATCH_SIZE)
-            self.logger.info(f"  Batch {batch_num}/{num_batches}: generating {batch_rows} rows...")
-
-            prompt = DatasetPromptBuilder.build(
+        # Step 1 — seed data
+        if sample_df is not None:
+            seed_df = sample_df
+            self.logger.info(
+                f"Using provided sample data: {len(seed_df):,} rows for SDV training"
+            )
+        else:
+            seed_rows = max(100, min(300, rows))
+            self.logger.info(
+                f"No sample data provided — generating {seed_rows}-row LLM seed for SDV training"
+            )
+            seed_df = self._generate_llm(
+                rows=seed_rows,
                 dataset_name=dataset_name,
-                rows=batch_rows,
                 description=description,
-                schema=resolved_schema,
-                sample_rows=sample_rows,
+                schema=schema,
+                sample_rows=None,
                 ai_criteria=ai_criteria
             )
+            self.logger.info(f"LLM seed generated: {len(seed_df):,} rows")
 
-            response = self.llm.generate(
-                prompt=prompt,
-                temperature=0.3,
-                max_tokens=5000
-            )
+        # Step 2 — Cast dtypes: CSV seed arrives as all-strings; SDV needs proper types
+        if schema:
+            seed_df = SDVSynthesizer.cast_dtypes(seed_df, schema)
+            self.logger.info("Seed data dtypes cast to match schema")
 
-            batch_data = self._parse_llm_response(response)
-            all_frames.append(pd.DataFrame(batch_data))
+        # Step 3 — SDV Metadata
+        metadata = SDVSynthesizer.build_metadata(df=seed_df, schema=schema)
 
-        return pd.concat(all_frames, ignore_index=True)
+        # Step 3 — Train
+        synthesizer = SDVSynthesizer.train(
+            df=seed_df,
+            metadata=metadata,
+            synthesizer_type=synthesizer_type
+        )
 
-    # -------------------------------------------------
-    # PARSE LLM RESPONSE
-    # -------------------------------------------------
-    def _parse_llm_response(self, response: str):
-        """
-        Strip markdown code fences if present, then parse JSON.
-        Handles responses like:
-            ```json
-            [ {...} ]
-            ```
-        """
+        # Save model for reuse
+        SDVSynthesizer.save_model(synthesizer, dataset_name, synthesizer_type)
+
+        # Step 4 — Sample
+        df = SDVSynthesizer.sample(synthesizer, n_rows=rows)
+
+        # Step 5 — Post-process
+        return self._post_process(df, schema)
+
+    # ── LLM generation (legacy) ───────────────────────────────────
+    def _generate_llm(
+        self,
+        rows: int,
+        dataset_name: str,
+        description: Optional[str],
+        schema,
+        sample_rows,
+        ai_criteria: Optional[str]
+    ) -> pd.DataFrame:
+        """Delegate to BatchRunner (parallel LLM calls)."""
+        from core.batch_runner import BatchRunner
+        return BatchRunner().run(
+            rows=rows,
+            dataset_name=dataset_name,
+            description=description,
+            schema=schema,
+            sample_rows=sample_rows,
+            ai_criteria=ai_criteria
+        )
+
+    # ── Post-processing ───────────────────────────────────────────
+    def _post_process(self, df: pd.DataFrame, schema) -> pd.DataFrame:
+        """Replace uuid columns with Python UUIDs and drop duplicate rows."""
+        if schema:
+            uuid_cols = [
+                col["name"] for col in schema
+                if col.get("type") == "uuid" and col["name"] in df.columns
+            ]
+            for col in uuid_cols:
+                df[col] = [str(uuid_lib.uuid4()) for _ in range(len(df))]
+                self.logger.info(
+                    f"  Replaced '{col}' with {len(df):,} guaranteed-unique UUIDs"
+                )
+
+        before = len(df)
+        df = df.drop_duplicates().reset_index(drop=True)
+        removed = before - len(df)
+        if removed > 0:
+            self.logger.info(f"  Removed {removed:,} duplicate row(s)")
+        return df
+
+    # ── Schema discovery ─────────────────────────────────────────
+    def _discover_schema(self, dataset_name: str, description=None, ai_criteria=None):
+        """Ask the LLM once to define a consistent schema upfront."""
+        from llm.llm import LLMQuery
+        from prompt.dataset_prompt import DatasetPromptBuilder
+        import json
+
+        self.logger.info("No schema provided — discovering schema via LLM...")
+        prompt = DatasetPromptBuilder.build_schema_discovery(
+            dataset_name=dataset_name,
+            description=description,
+            ai_criteria=ai_criteria
+        )
+        llm = LLMQuery()
+        response = llm.generate(prompt=prompt, temperature=0.1, max_tokens=1000)
+
         text = response.strip()
-
-        # Remove opening fence (```json or ```)
         if text.startswith("```"):
-            # Drop the first line (the fence line)
             text = text[text.find("\n") + 1:]
-
-        # Remove closing fence
         if text.endswith("```"):
             text = text[:text.rfind("```")].strip()
 
         try:
-            return json.loads(text)
-        except json.JSONDecodeError as e:
-            # Likely truncated — give a helpful error
-            raise ValueError(
-                f"LLM response was truncated or malformed (JSON error: {e}). "
-                f"Try reducing the number of rows per request or simplify the schema."
-            ) from e
-
-    # -------------------------------------------------
-    # VALIDATION
-    # -------------------------------------------------
-    def _validate(self, dataset_name, rows, output_format):
-
-        if not dataset_name:
-            raise ValueError("dataset_name is mandatory")
-
-        if not rows:
-            raise ValueError("rows is mandatory")
-
-        if not isinstance(rows, int):
-            raise ValueError("rows must be integer")
-
-        if output_format not in ["csv", "parquet", "json", "tsv"]:
-            raise ValueError("format must be csv/parquet/json/tsv")
-
-    # -------------------------------------------------
-    # SCHEMA RESOLUTION
-    # -------------------------------------------------
-    def _resolve_schema(self,
-                        schema: List[Dict] = None,
-                        sample_schema_file: str = None,
-                        sample_rows: List[Dict] = None):
-
-        if schema:
+            schema = json.loads(text)
+            if not isinstance(schema, list):
+                raise ValueError("Schema discovery returned non-list")
+            col_names = [c.get("name") for c in schema]
+            self.logger.info(
+                f"Schema discovered: {len(schema)} columns → {col_names}"
+            )
             return schema
-
-        if sample_schema_file:
-            with open(sample_schema_file, "r") as f:
-                return json.load(f)
-
-        if sample_rows:
-            # Infer schema from sample rows
+        except Exception as e:
+            self.logger.warning(
+                f"Schema discovery failed ({e}) — falling back to 5-column default"
+            )
             return [
-                {"name": k, "type": type(v).__name__}
-                for k, v in sample_rows[0].items()
+                {"name": "id",         "type": "uuid",   "nullable": False},
+                {"name": "name",       "type": "name",   "nullable": False},
+                {"name": "email",      "type": "email",  "nullable": False},
+                {"name": "created_at", "type": "date",   "nullable": False},
+                {"name": "status",     "type": "string", "nullable": True},
             ]
 
-        return None
-
-    # -------------------------------------------------
-    # SAVE
-    # -------------------------------------------------
-    def _save(self, df, dataset_name, fmt, target_location=None):
-
-        base_path = target_location or self.settings.output_dir
-        os.makedirs(base_path, exist_ok=True)
-
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        path = f"{base_path}/{dataset_name}_{timestamp}.{fmt}"
-
-        if fmt == "csv":
-            df.to_csv(path, index=False)
-
-        elif fmt == "parquet":
-            df.to_parquet(path, index=False)
-
-        elif fmt == "json":
-            df.to_json(path, orient="records", indent=2)
-
-        return path
+    # ── Validation ────────────────────────────────────────────────
+    def _validate(self, dataset_name, rows, output_format, mode):
+        if not dataset_name:
+            raise ValueError("dataset_name is required")
+        if not rows or not isinstance(rows, int) or rows <= 0:
+            raise ValueError("rows must be a positive integer")
+        if output_format not in {"csv", "parquet", "json", "tsv"}:
+            raise ValueError("format must be one of: csv, parquet, json, tsv")
+        if mode not in {"sdv", "llm"}:
+            raise ValueError("mode must be 'sdv' or 'llm'")
