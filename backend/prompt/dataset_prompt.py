@@ -110,13 +110,16 @@ class DatasetPromptBuilder:
         # Sample rows block
         sample_block = ""
         if sample_rows:
-            sample_lines = []
+            import io
+            import csv
+            output = io.StringIO()
+            writer = csv.writer(output)
             for r in sample_rows[:5]:
-                sample_lines.append(", ".join(str(r.get(col["name"], "")) for col in schema))
+                writer.writerow([str(r.get(col["name"], "")) for col in schema])
             sample_block = (
                 "\nReference rows (mimic style, values, and distributions below — "
                 "do NOT copy them verbatim):\n"
-                + "\n".join(sample_lines)
+                + output.getvalue().strip()
             )
 
         description_block = f"\nDataset context: {description}" if description else ""

@@ -100,16 +100,22 @@ def show_preview(request: dict) -> bool:
         print(f"  Save To       : {request['target_location']}")
 
     schema = request.get("schema")
+    primary_key = request.get("primary_key")
+
     if schema:
-        print(f"\n  {'Column':<20} {'Type':<12} {'Nullable':<10} {'Pattern'}")
-        print("  " + "─" * 55)
+        print(f"\n  {'Column':<25} {'Type':<12} {'Nullable':<10} {'Pattern'}")
+        print("  " + "─" * 60)
         for col in schema:
             name     = col.get("name", "")
+            
+            # Highlight primary key
+            display_name = f"{name} [PK]" if name == primary_key else name
+            
             col_type = col.get("type", "string")
             nullable = "yes" if col.get("nullable") else "no"
             pattern  = col.get("pattern", "") or ""
-            print(f"  {name:<20} {col_type:<12} {nullable:<10} {pattern}")
-        print("  " + "─" * 55)
+            print(f"  {display_name:<25} {col_type:<12} {nullable:<10} {pattern}")
+        print("  " + "─" * 60)
     else:
         print("\n  Schema        : Not defined — AI will decide columns")
 
