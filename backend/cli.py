@@ -125,7 +125,21 @@ def display_results(output):
     if isinstance(output, dict):
         print(" Generation Summary:")
         for key, value in output.items():
+            if key == "quality_report":
+                continue  # Handled below
             print(f"  {key}: {value}")
+            
+        if "quality_report" in output:
+            qr = output["quality_report"]
+            print("\n 📊 Primary Key Quality Report:")
+            print(f"    Column       : {qr['primary_key_column']}")
+            print(f"    Duplicates   : {qr['duplicates_found']}")
+            print(f"    Nulls/Empty  : {qr['nulls_found']}")
+            if qr["is_valid"]:
+                print("    Status       : ✅ PASSED (100% unique, non-null)")
+            else:
+                print("    Status       : ❌ FAILED (Duplicates or nulls found)")
+                
     else:
         print(" Response:")
         print(output)
