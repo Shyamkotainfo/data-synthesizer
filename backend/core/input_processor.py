@@ -37,7 +37,15 @@ class InputProcessor:
         if raw_input.get("sample_file"):
             path = raw_input["sample_file"]
             if path.endswith(".csv"):
-                df = pd.read_csv(path)
+                # Auto-detect separator (handles commas, semicolons, etc.)
+                df = pd.read_csv(path, sep=None, engine="python")
+                
+                # Sanitize column names so they don't break the LLM CSV generation
+                df.columns = [
+                    str(c).replace(";", "").replace(":", "").replace('"', '').strip() 
+                    for c in df.columns
+                ]
+                
                 request["sample_df"] = df         # full DataFrame for SDV training
                 request["sample_rows"] = df.head(5).to_dict(orient="records")
             elif path.endswith(".json"):

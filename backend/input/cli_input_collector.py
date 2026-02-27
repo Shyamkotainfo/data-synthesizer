@@ -38,7 +38,7 @@ def collect_generation_input():
     print("\n" + "─" * 50)
     print("  SCHEMA DEFINITION")
     print("─" * 50)
-    print("  1. Upload schema file (JSON)")
+    print("  1. Upload file (.json schema or .csv sample data)")
     print("  2. Define columns manually")
     print("  3. Skip — let AI decide")
     print("─" * 50)
@@ -46,13 +46,22 @@ def collect_generation_input():
     schema_choice = _prompt_choice("Choose schema mode", choices=["1", "2", "3"], default="3")
 
     schema_file = None
+    sample_file = None
     schema = None
 
     if schema_choice == "1":
-        schema_file = _prompt("Schema file path (.json)", required=True)
-        if not os.path.exists(schema_file):
-            print(f"  ⚠ File not found: {schema_file}. Falling back to manual entry.")
+        file_path = _prompt("File path (.json or .csv)", required=True)
+        if not os.path.exists(file_path):
+            print(f"  ⚠ File not found: {file_path}. Falling back to manual entry.")
             schema_choice = "2"
+        else:
+            if file_path.endswith(".csv"):
+                sample_file = file_path
+            elif file_path.endswith(".json"):
+                schema_file = file_path
+            else:
+                print(f"  ⚠ Unsupported file type. Falling back to manual entry.")
+                schema_choice = "2"
 
     if schema_choice == "2":
         schema = _collect_schema_columns()
@@ -64,7 +73,7 @@ def collect_generation_input():
         "description": description or None,
         "schema_file": schema_file or None,
         "schema": schema or None,
-        "sample_file": None,
+        "sample_file": sample_file or None,
         "ai_criteria": ai_criteria or None,
         "target_location": target_location or None
     }

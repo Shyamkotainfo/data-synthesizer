@@ -146,6 +146,8 @@ class PreviewResponse(BaseModel):
     dataset_name: str
     rows: int
     format: str
+    mode: str
+    synthesizer: str
     description: Optional[str]
     ai_criteria: Optional[str]
     target_location: Optional[str]
@@ -191,11 +193,15 @@ def preview_dataset(req: GenerateRequest):
 
     from core.input_processor import InputProcessor
     from prompt.dataset_prompt import DatasetPromptBuilder
+    from core.schema_resolver import SchemaResolver
+    from core.data_synthesizer import DataSynthesizer
 
     raw_input = {
         "dataset_name": req.dataset_name,
         "rows": str(req.rows),
         "format": req.format,
+        "mode": req.mode,
+        "synthesizer": req.synthesizer,
         "description": req.description,
         "ai_criteria": req.ai_criteria,
         "target_location": req.target_location,
@@ -207,11 +213,20 @@ def preview_dataset(req: GenerateRequest):
     processor = InputProcessor()
     request = processor.build_request(raw_input)
 
+    resolved_schema = SchemaResolver.resolve(schema=request.get("schema"))
+    if not resolved_schema and request.get("description"):
+        synth = DataSynthesizer()
+        resolved_schema = synth._discover_schema(
+            dataset_name=request["dataset_name"],
+            description=request["description"],
+            ai_criteria=request.get("ai_criteria")
+        )
+
     prompt = DatasetPromptBuilder.build(
         dataset_name=request["dataset_name"],
         rows=request["rows"],
         description=request.get("description"),
-        schema=request.get("schema"),
+        schema=resolved_schema,
         ai_criteria=request.get("ai_criteria"),
     )
 
@@ -219,10 +234,12 @@ def preview_dataset(req: GenerateRequest):
         dataset_name=req.dataset_name,
         rows=req.rows,
         format=req.format,
+        mode=req.mode,
+        synthesizer=req.synthesizer,
         description=req.description,
         ai_criteria=req.ai_criteria,
         target_location=req.target_location,
-        columns=request.get("schema"),
+        columns=resolved_schema,
         prompt_preview=prompt,
         ready_to_generate=True
     )
@@ -292,16 +309,6 @@ def generate_dataset(req: GenerateRequest):
 
     logger.info(f"Generation complete: {file_path}")
     return response
-
-
-@app.get("/history", response_model=List[HistoryItem], tags=["Generation"])
-def get_history():
-    """Return all past generation runs from DynamoDB (persists across restarts)"""
-    try:
-        return db.get_all_jobs()
-    except Exception as e:
-        logger.error(f"DynamoDB scan failed: {e}")
-        raise HTTPException(status_code=503, detail=f"History unavailable: {e}")
 
 
 @app.get("/download/{job_id}", tags=["Generation"])
@@ -456,31 +463,3 @@ async def upload_schema_file(file: UploadFile = File(...)):
             detail=f"Unsupported file type '{filename}'. Upload a .json or .csv file."
         )
 
-
-@app.get("/schema/sample", tags=["Schema"])
-def get_sample_schema():
-    """Returns a sample schema JSON you can use as a template"""
-    return [
-        {"name": "id",          "type": "uuid",    "nullable": False},
-        {"name": "full_name",   "type": "name",    "nullable": False},
-        {"name": "email",       "type": "email",   "nullable": False},
-        {"name": "age",         "type": "integer", "nullable": False, "pattern": "18-65"},
-        {"name": "city",        "type": "string",  "nullable": True},
-        {"name": "signup_date", "type": "date",    "nullable": False,
-         "pattern": "2020-01-01 to 2025-12-31"},
-        {"name": "is_active",   "type": "boolean", "nullable": False}
-    ]
-
-
-@app.get("/schema/types", tags=["Schema"])
-def get_supported_types():
-    """Lists all supported column types, distributions, and output formats"""
-    return {
-        "types": [
-            "string", "integer", "float", "boolean",
-            "date", "datetime", "email", "phone",
-            "uuid", "name", "address", "url"
-        ],
-        "distributions": ["uniform", "normal", "skewed", "random"],
-        "formats": ["csv", "json", "parquet", "tsv"]
-    }

@@ -40,12 +40,10 @@ class ResponseParser:
         text           = ResponseParser._clean(response)
 
         rows = []
+        skipped_count = 0
         for line in text.splitlines():
             line = line.strip()
             if not line:
-                continue
-            # Skip any line that looks like a header (matches first column name)
-            if line.lower().startswith(column_names[0].lower() + ","):
                 continue
             # Skip obvious commentary lines
             if line.startswith("#") or line.startswith("//"):
@@ -57,10 +55,19 @@ class ResponseParser:
                 continue
 
             if len(values) != expected_cols:
-                continue   # skip malformed rows (wrong column count)
+                skipped_count += 1
+                logger.debug(f"Skipped row (expected {expected_cols} cols, got {len(values)}): {line[:80]}")
+                continue
+
+            # Skip header rows: ALL parsed values must match column names
+            if [v.strip().lower() for v in values] == [c.lower() for c in column_names]:
+                logger.debug(f"Skipped header row: {line[:80]}")
+                continue
 
             rows.append(dict(zip(column_names, values)))
 
+        if skipped_count:
+            logger.debug(f"parse_csv: {len(rows)} rows accepted, {skipped_count} rows skipped (column count mismatch)")
         return rows
 
     @staticmethod

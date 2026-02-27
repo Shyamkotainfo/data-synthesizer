@@ -61,9 +61,22 @@ def main():
                 raw_request = collect_generation_input()
                 request = input_processor.build_request(raw_request)
 
-                # STEP 1: Show preview, ask for confirmation
-                confirmed = show_preview(request)
-                if not confirmed:
+                # If we have sample rows but no schema yet, infer it now so the preview shows it
+                if not request.get("schema") and request.get("sample_rows"):
+                    from core.schema_resolver import SchemaResolver
+                    request["schema"] = SchemaResolver.resolve(sample_rows=request["sample_rows"])
+                    
+                # STEP 1: Show preview of dataset and schema
+                show_preview(request)
+
+                # Ask about primary key if dealing with SDV
+                if request.get("mode", "sdv") == "sdv" and request.get("schema"):
+                    _confirm_or_change_primary_key(request["schema"])
+
+                # STEP 2: Ask for final confirmation
+                print("\n" + "─" * 60)
+                confirm = input("  Confirm and generate? (y/n) [y]: ").strip().lower()
+                if confirm not in ("", "y", "yes"):
                     print("  ↩ Generation cancelled.")
                     continue
 
@@ -86,11 +99,62 @@ def main():
             print(f"Error: {e}")
 
 
-def show_preview(request: dict) -> bool:
+def _confirm_or_change_primary_key(schema: list):
+    """
+    Show all columns as a numbered list and let the user pick the primary key.
+    """
+    print("\n" + "─" * 60)
+    print("  PRIMARY KEY / DEDUPLICATION COLUMN")
+    print("  (Used to remove duplicate rows — does not change column format)")
+    print("─" * 60)
+
+    # Clear any existing PK flags first
+    for col in schema:
+        col["primary_key"] = False
+
+    # Detect auto-suggested PK (uuid/id type)
+    suggested_idx = None
+    for i, col in enumerate(schema):
+        if col.get("type", "").lower() in ("uuid", "id"):
+            suggested_idx = i
+            break
+
+    # Display numbered list
+    print("  Select the primary key column:\n")
+    for i, col in enumerate(schema, 1):
+        tag = "  ← suggested" if (i - 1) == suggested_idx else ""
+        print(f"    {i:>2}. {col['name']:<25} ({col.get('type', 'string')}){tag}")
+
+    print("     0. No primary key")
+    print()
+
+    default = str(suggested_idx + 1) if suggested_idx is not None else "0"
+    while True:
+        raw = input(f"  Enter number [{default}]: ").strip()
+        if not raw:
+            raw = default
+        try:
+            choice = int(raw)
+        except ValueError:
+            print("  ⚠ Please enter a valid number.")
+            continue
+
+        if choice == 0:
+            print("  ℹ Proceeding without a primary key.")
+            break
+        elif 1 <= choice <= len(schema):
+            pk_col = schema[choice - 1]
+            pk_col["primary_key"] = True
+            print(f"  ✅ Primary key set to [{pk_col['name']}]")
+            break
+        else:
+            print(f"  ⚠ Enter a number between 0 and {len(schema)}.")
+
+
+
+def show_preview(request: dict):
     """
     Display a summary of what will be generated.
-    Ask user to confirm before calling the LLM.
-    Returns True if confirmed, False to cancel.
     """
     print("\n" + "─" * 60)
     print("  GENERATION PREVIEW — Please review before confirming")
@@ -108,25 +172,25 @@ def show_preview(request: dict) -> bool:
         print(f"  AI Criteria   : {request['ai_criteria']}")
     if request.get("target_location"):
         print(f"  Save To       : {request['target_location']}")
+    if request.get("sample_file"):
+        print(f"  Sample Data   : {request['sample_file']} (Will be used to train SDV)")
 
     schema = request.get("schema")
     if schema:
-        print(f"\n  {'Column':<20} {'Type':<12} {'Nullable':<10} {'Pattern'}")
-        print("  " + "─" * 55)
+        print(f"\n  {'Column':<25} {'Type':<12} {'PK':<5} {'Nullable':<10} {'Pattern'}")
+        print("  " + "─" * 65)
         for col in schema:
             name     = col.get("name", "")
             col_type = col.get("type", "string")
+            is_pk    = "PK" if col.get("primary_key") else ""
             nullable = "yes" if col.get("nullable") else "no"
             pattern  = col.get("pattern", "") or ""
-            print(f"  {name:<20} {col_type:<12} {nullable:<10} {pattern}")
-        print("  " + "─" * 55)
+            print(f"  {name:<25} {col_type:<12} {is_pk:<5} {nullable:<10} {pattern}")
+        print("  " + "─" * 65)
     else:
         print("\n  Schema        : Not defined — AI will decide columns")
 
     print("\n" + "─" * 60)
-
-    confirm = input("  Confirm and generate? (y/n) [y]: ").strip().lower()
-    return confirm in ("", "y", "yes")
 
 
 def display_results(output):

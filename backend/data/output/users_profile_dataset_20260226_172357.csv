@@ -1,0 +1,101 @@
+user_id,first_name,last_name,date_of_birth,age,gender,email,phone_number,street_address,city,state,zip_code,account_created_at,last_login_at,account_status,subscription_plan,total_orders,total_spent_usd,is_email_verified,preferred_device
+U778899001,Megan,Gonzalez,1995-07-07,27,Male,jessica.brown@example.com,555-890-1234,680 Beech St,San Antonio,VA,43201,2023-06-15 14:23:45,2023-10-08 09:22:15,Active,premium,6,400.68,True,Desktop
+u123471,William,Martinez,1975-07-31,40,Male,megan.lopez@example.com,555-456-7890,654 Maple St,Las Vegas,NV,43201,2019-12-05T16:30:00,2023-09-06T08:30:45,active,Basic,18,1970.62,True,tablet
+u123483,Ryan,Green,1980-07-30,39,Female,leo.baker@example.com,555-987-6543,321 Maple St,Old Hickory,NY,32201,2020-03-15T10:15:45,2023-09-06T10:10:30,active,basic,2,14.49,True,tablet
+U665544332,Elijah,Thomas,1985-02-20,46,Male,benjamin.rivera@example.com,555-456-7890,890 Elm St,White House,TN,37073,2023-06-15 14:23:45,2023-10-12 15:45:22,Active,Premium,20,3042.01,True,Mobile
+U445566779,Zachary,Mitchell,1991-07-26,27,Female,noah.nelson@example.com,555-012-3456,468 Elm St,Seattle,TN,90001,2024-07-10 16:12:34,2023-11-05 14:22:15,Active,basic,4,149.11,True,Mobile
+u123465,Ryan,White,1973-02-27,48,Male,harper.hill@example.com,555-765-4321,321 Pine St,Clarksville,TN,37086,2019-11-30T16:00:10,2023-09-06T09:50:10,Active,Premium,19,3349.35,True,Mobile
+u1013,George,Mitchell,1982-10-08,30,Male,ava.harris@example.com,555-345-6789,890 Aspen St,Old Hickory,TN,90001,2024-04-10T07:00:00,2023-10-18T07:45:00,active,basic,1,210.79,True,mobile
+u1035,Zoe,Rivera,1976-10-16,41,Male,abigail.perez@example.com,555-456-7890,579 Spruce St,Boston,PA,38101,2023-04-05 16:12:34,2023-11-08T20:30:00,Active,basic,0,0.02,True,Tablet
+u1039,Victor,Lopez,1980-06-01,45,Male,wendy.baker@example.com,555-889-9001,135 Pine St,Arlington,OH,85701,2023-05-20 08:45:12,2023-11-12T03:30:00,active,basic,1,8.05,True,mobile
+U556677890,Catherine,Lopez,1995-09-22,28,Female,ethan.baker@example.com,555-556-6778,456 Cedar St,Raleigh,MA,68101,2024-08-15 08:45:12,2023-11-07 09:30:45,active,None,4,11.27,True,Tablet
+U667788991,Liam,Perez,1985-04-22,30,Male,logan.mitchell@example.com,555-445-5668,791 Ash St,San Jose,VA,85701,2024-08-15 08:45:12,2023-11-07 09:30:45,Active,basic,4,100.5,False,Desktop
+u123488,Ethan,Miller,1996-12-08,29,Male,jack.rodriguez@example.com,555-678-9012,987 Maple St,Goodlettsville,TN,37076,2019-05-10T14:45:30,2023-09-07T14:05:20,Active,premium,3,158.1,True,tablet
+u123484,Jacob,Walker,1978-07-11,35,Male,zoe.scott@example.com,555-778-8991,789 Spruce St,Portland,FL,60601,2021-08-20T13:15:45,2023-09-05T11:05:30,Active,Basic,16,2424.81,True,desktop
+u123482,James,Rivera,1982-08-26,35,Male,paul.lewis@example.com,555-432-1098,123 Elm St,San Antonio,TX,76101,2020-06-25T14:10:30,2023-09-07T14:05:20,active,basic,2,171.12,True,mobile
+u123464,Ava,Wilson,1983-10-12,34,Female,benjamin.taylor@example.com,555-654-3210,231 Maple St,Memphis,TX,37027,2019-11-30T16:00:10,2023-09-01T12:30:45,active,basic,9,371.73,True,tablet
+u1026,Xavier,Mitchell,1978-04-16,42,Male,daniel.garcia@example.com,555-012-3456,246 Elm St,Columbus,FL,46201,2025-10-20T14:30:00,2023-10-31T06:30:00,Active,basic,8,243.98,True,mobile
+u123490,Paul,Taylor,1983-06-18,43,Female,grace.taylor@example.com,555-987-6543,321 Cedar St,Nashville,TN,37072,2019-05-10T14:45:30,2023-09-05T11:05:30,Active,Basic,4,602.07,True,Mobile
+u1012,Liam,Adams,1982-12-23,33,Female,megan.lopez@example.com,555-765-4321,357 Elm St,San Antonio,TN,97201,2024-06-20T10:30:00,2023-10-15T02:30:00,active,basic,7,157.55,True,mobile
+u123474,Isabella,Thomas,1994-08-20,27,Female,ella.clark@example.com,555-345-6789,654 Cedar St,Goodlettsville,TN,37148,2022-05-14T14:10:30,2023-09-01T15:45:20,Active,Basic,19,1527.54,True,Mobile
+u123468,Benjamin,Jackson,1986-12-27,38,Female,charlotte.thompson@example.com,555-765-4321,890 Ash St,Memphis,TN,38305,2021-03-22T10:15:45,2023-09-02T09:40:15,Active,premium,7,1365.28,True,Mobile
+u1022,Abigail,Perez,1994-11-06,29,Male,grace.taylor@example.com,555-665-5443,321 Maple St,Columbus,FL,53201,2024-08-10T14:00:00,2023-10-20T11:15:00,Active,Premium,22,3419.21,True,Mobile
+u123465,Isabella,Perez,1979-05-04,45,Male,victor.adams@example.com,555-987-6543,321 Pine St,Miami,CA,02101,2020-12-10T15:45:20,2023-09-04T10:10:30,active,premium,1,108.72,True,tablet
+u123470,Michael,Johnson,1972-05-27,49,Female,olivia.miller@example.com,555-555-1212,123 Walnut St,Springfield,TN,37902,2020-10-10T09:45:10,2023-09-03T12:30:45,active,Basic,20,2711.76,True,desktop
+u123456,John,Doe,1970-07-13,51,Male,john.doe@example.com,555-987-6543,123 Main St,Chattanooga,NV,37082,2021-07-12T14:23:15,2023-09-10T09:45:30,Active,Premium,18,3095.56,True,tablet
+u123469,Harper,Garcia,1975-01-27,51,Male,henry.garcia@example.com,555-234-5678,234 Birch St,Murfreesboro,TX,38401,2021-03-22T10:15:45,2023-09-07T11:05:30,Active,Basic,10,1239.46,True,tablet
+U223344556,Jessica,Carter,1989-05-04,35,Male,amelia.wright@example.com,555-345-6789,321 Maple St,Greenbrier,TX,94101,2023-06-15 14:23:45,2023-10-14 08:12:30,active,basic,0,1.32,True,Mobile
+u1012,Aiden,Scott,1981-03-04,43,Female,sophia.martinez@example.com,555-555-1212,890 Cedar St,Austin,TN,73301,2024-03-05T05:15:00,2023-10-17T06:00:00,Active,Premium,18,1936.17,True,mobile
+u1028,Amelia,Baker,1978-09-03,37,Male,zachary.mitchell@example.com,555-334-4557,802 Beech St,Virginia Beach,NM,74101,2025-08-10T11:00:00,2023-11-01T08:15:00,active,basic,1,15.29,False,desktop
+U445566779,Harold,Rivera,1996-01-20,29,Female,harper.carter@example.com,555-321-0987,890 Aspen St,Baltimore,LA,87101,2024-07-10 16:12:34,2023-11-05 14:22:15,active,Basic,9,116.86,True,mobile
+u1020,Wendy,Wilson,1989-10-12,33,Male,gina.hill@example.com,555-778-8990,123 Walnut St,Nolensville,TN,37135,2024-08-10T14:00:00,2023-11-02T10:00:00,Active,Basic,1,168.73,True,Desktop
+u123465,Sophia,Brown,1990-06-15,30,Female,emily.davis@example.com,555-654-3210,654 Cedar St,Chattanooga,TN,37086,2021-06-25T13:15:45,2023-09-11T13:20:45,Active,Premium,21,3103.89,True,Desktop
+u123486,Sophia,Davis,1975-11-05,45,Male,james.wilson@example.com,555-345-6789,791 Ash St,Goodlettsville,TN,94101,2023-04-05T09:20:00,2023-09-09T09:40:15,active,basic,3,5.4,True,tablet
+u1023,David,Lewis,1977-07-12,44,Male,jacob.king@example.com,555-456-7890,468 Walnut St,Phoenix,FL,75201,2025-01-15T22:45:00,2023-10-27T23:30:00,Inactive,Basic,16,1202.78,True,Mobile
+u123459,Ava,Lewis,1978-03-26,43,Male,jane.smith@example.com,555-234-5678,321 Pine St,Nashville,TN,37402,2019-08-22T12:00:00,2023-09-12T08:30:45,Active,Basic,4,1217.87,True,Mobile
+u123487,Ivy,Hill,1991-01-03,30,Female,lucas.thomas@example.com,555-654-3210,890 Cedar St,Clarksville,TN,77002,2023-02-20T10:15:00,2023-10-05T14:22:00,Active,Premium,13,2819.21,True,Desktop
+u123491,Harper,Harris,1981-01-19,40,Female,ryan.young@example.com,555-665-5443,357 Walnut St,Dallas,TX,46201,2021-08-20T13:15:45,2023-09-09T09:40:15,active,basic,12,434.01,True,tablet
+u1033,Henry,Adams,1991-01-31,37,Male,jack.white@example.com,555-234-5678,802 Beech St,Goodlettsville,TN,73301,2025-11-05T16:15:00,2023-11-08T20:30:00,Active,premium,6,450.78,True,Desktop
+u123469,Ella,Baker,1977-09-29,47,Male,charlotte.thompson@example.com,555-876-5432,321 Pine St,Jackson,IL,37027,2019-12-05T16:30:00,2023-09-03T12:30:45,Active,Premium,10,2327.07,True,Mobile
+u123457,Mia,Smith,1971-11-06,46,Male,james.wilson@example.com,555-123-4567,123 Main St,Memphis,TX,37402,2022-03-20T10:15:45,2023-08-28T11:05:30,Active,Premium,17,2516.69,True,tablet
+u1024,Michael,Harris,1996-03-03,29,Male,thomas.scott@example.com,555-889-9001,654 Cedar St,Dickson,TN,37138,2025-08-10T11:00:00,2023-10-29T03:00:00,Active,Premium,14,2001.94,True,Mobile
+u1015,Sophia,Brown,1992-12-03,35,Female,elijah.carter@example.com,555-987-6543,321 Maple St,La Vergne,TN,37087,2024-03-05T05:15:00,2023-10-16T04:15:00,Active,Basic,18,1874.72,True,tablet
+u123490,Luna,Young,1996-06-04,26,Female,nathan.gonzalez@example.com,555-678-9012,123 Walnut St,San Antonio,MA,19101,2023-01-15T08:30:00,2023-10-08T13:15:00,Active,Premium,19,2088.4,True,Tablet
+u1003,Liam,Martinez,1989-10-10,38,Female,abigail.perez@example.com,555-123-4567,890 Elm St,San Antonio,FL,90801,2023-05-12T11:00:00,2023-10-09T15:00:00,active,basic,5,35.13,True,tablet
+U112233445,Stella,Allen,1995-04-23,28,Female,noah.perez@example.com,555-012-3456,024 Cedar St,Boston,TN,33101,2023-01-15 14:23:45,2023-10-08 09:22:15,Active,Basic,17,900.96,True,Mobile
+u1014,Megan,Gonzalez,1997-04-19,27,Female,quinn.walker@example.com,555-765-4321,024 Cedar St,Denver,TX,40201,2023-08-10T17:00:00,2023-10-18T07:45:00,active,basic,3,14.06,True,Desktop
+U990011223,Noah,Wright,1983-01-06,37,Male,mia.gonzalez@example.com,555-667-7889,357 Elm St,Las Vegas,CA,46201,2023-12-15 09:45:12,2023-10-20 11:45:22,Inactive,basic,2,29.97,True,Mobile
+U445566779,Daniel,Nelson,1995-12-09,27,Male,mia.gonzalez@example.com,555-445-5668,567 Spruce St,Oklahoma City,VA,73101,2024-07-10 16:12:34,2023-11-05 14:22:15,Active,basic,7,184.63,True,Mobile
+U778899001,Zachary,Martin,1981-03-08,40,Male,isabella.young@example.com,555-567-8901,468 Spruce St,Louisville,CA,87101,2023-09-20 16:12:34,2023-10-08 09:22:15,Active,premium,3,520.82,True,Tablet
+u1018,Leo,Nelson,1989-02-28,36,Male,abigail.perez@example.com,555-098-7654,890 Elm St,Phoenix,PA,32201,2023-12-10T00:00:00,2023-10-12T20:15:00,Active,Premium,18,2650.93,True,Desktop
+u123489,Aiden,Gonzalez,1991-07-11,31,Male,noah.walker@example.com,555-234-5678,123 Elm St,White House,CA,33101,2021-03-10T11:30:15,2023-09-01T13:20:45,Active,Premium,14,2730.66,True,Desktop
+u123489,Emily,Garcia,1985-05-07,33,Male,henry.garcia@example.com,555-345-6789,321 Maple St,Gallatin,TN,37086,2023-04-05T09:20:00,2023-09-01T13:20:45,Active,Basic,12,1840.82,True,tablet
+U334455668,Aria,Jackson,1991-08-25,31,Female,amelia.wright@example.com,555-667-7889,357 Oak St,Long Beach,CO,23451,2024-06-05 11:30:22,2023-11-03 08:12:30,active,basic,5,50.32,True,desktop
+U987654321,Benjamin,Allen,1988-08-11,36,Female,george.king@example.com,555-665-5443,987 Maple St,White House,TN,94101,2023-06-15 14:23:45,2023-10-10 11:30:45,active,basic,5,80.56,True,Mobile
+U556677890,Harper,Perez,1997-02-07,27,Female,harper.carter@example.com,555-334-4557,890 Aspen St,Raleigh,WA,85701,2024-08-15 08:45:12,2023-11-07 09:30:45,Active,Basic,8,847.12,True,Mobile
+u1025,Sophia,Hill,1977-04-02,39,Male,jacob.king@example.com,555-012-3456,321 Maple St,Jacksonville,TN,74101,2025-02-20T00:30:00,2023-11-01T08:15:00,active,basic,1,7.41,True,Mobile
+u123459,Ethan,Lewis,1998-11-01,26,Female,lucas.thomas@example.com,555-123-4567,321 Pine St,Springfield,TN,62701,2020-11-30T16:30:00,2023-09-12T08:30:45,Active,Basic,15,2512.04,True,Mobile
+U987654321,Ava,Rivera,1983-08-01,33,Male,jessica.brown@example.com,555-321-0987,321 Maple St,San Francisco,TN,92101,2023-02-20 09:45:12,2023-10-01 08:15:22,Active,Basic,2,354.9,True,Mobile
+u123481,Alice,Taylor,1985-06-05,39,Male,ryan.young@example.com,555-210-9876,987 Pine St,Fort Worth,CA,74101,2019-10-20T14:45:30,2023-09-08T09:50:10,Inactive,basic,6,164.49,True,tablet
+u123471,Uma,Young,1986-07-08,37,Female,mia.jackson@example.com,555-123-4567,231 Maple St,La Vergne,NY,90001,2022-05-14T14:10:30,2023-09-07T11:05:30,Active,Premium,21,3248.08,True,mobile
+u123473,James,Harris,1983-09-28,40,Male,henry.garcia@example.com,555-654-3210,456 Ash St,Springfield,IL,38305,2022-05-14T14:10:30,2023-09-07T11:05:30,Active,Premium,12,1937.7,True,Mobile
+u123490,Olivia,Nelson,1982-04-09,42,Male,paul.lewis@example.com,555-778-8990,789 Pine St,Gallatin,TN,37148,2023-05-12T11:00:00,2023-09-01T13:20:45,Inactive,premium,5,870.12,True,Mobile
+U990011223,George,Rivera,1976-12-23,48,Male,noah.nelson@example.com,555-678-9012,579 Ash St,San Antonio,WI,89101,2023-12-15 09:45:12,2023-10-20 11:45:22,Active,Premium,21,2982.34,True,Mobile
+u1022,Michael,Clark,1995-04-24,29,Female,owen.perez@example.com,555-987-6543,357 Oak St,La Vergne,TN,73301,2025-03-05T02:15:00,2023-10-26T21:45:00,active,basic,0,1.15,True,Mobile
+u1028,Mia,Garcia,1992-03-03,29,Female,benjamin.rivera@example.com,555-432-1098,357 Walnut St,Miami,TX,40201,2025-02-20T00:30:00,2023-10-29T03:00:00,active,basic,5,204.34,True,desktop
+u123462,Sophia,Taylor,1976-11-28,41,Female,lucas.thomas@example.com,555-876-5432,987 Pine St,Hendersonville,TN,37075,2021-04-05T11:30:15,2023-09-06T09:50:10,Active,premium,1,252.42,True,Tablet
+U123456789,Henry,Rodriguez,1982-01-08,40,Female,benjamin.rivera@example.com,555-678-9012,468 Spruce St,Chicago,TN,98101,2023-01-15 14:23:45,2023-11-12T03:30:00,Active,premium,8,567.25,True,Mobile
+U665544332,Katherine,King,1992-04-30,27,Male,sophia.martinez@example.com,555-890-1234,246 Maple St,Tulsa,LA,87101,2023-06-15 14:23:45,2023-10-01 08:15:22,Active,basic,9,144.88,True,mobile
+u1017,Aiden,Gonzalez,1997-06-26,27,Female,olivia.rodriguez@example.com,555-234-5678,468 Spruce St,Goodlettsville,TN,37049,2024-07-05T12:15:00,2023-10-19T09:30:00,Active,Basic,13,1446.84,True,Mobile
+u123486,Noah,Brown,1988-07-28,28,Female,isabella.young@example.com,555-987-6543,789 Cedar St,Austin,FL,73301,2019-10-20T14:45:30,2023-09-07T14:05:20,Active,Premium,21,3230.11,True,mobile
+u123458,Jane,Smith,1976-01-22,49,Female,mia.jackson@example.com,555-123-4567,321 Pine St,Springfield,TN,62701,2021-05-15T09:45:10,2023-08-28T11:05:30,Active,Premium,10,2155.59,True,Mobile
+u1011,William,Rodriguez,1994-06-13,32,Female,thomas.scott@example.com,555-456-7890,456 Ash St,Clarksville,TN,37075,2024-05-15T08:45:00,2023-10-22T14:45:00,Active,Basic,8,762.3,True,Mobile
+u1015,Benjamin,Martinez,1992-08-26,30,Male,stella.rivera@example.com,555-234-5678,654 Cedar St,Miami,TN,80201,2024-04-10T07:00:00,2023-10-22T14:45:00,Active,Premium,15,1927.35,True,Mobile
+u1038,George,Lopez,1982-12-11,34,Female,emily.martinez@example.com,555-432-1098,791 Ash St,New Orleans,OR,73101,2026-04-10T01:00:00,2023-11-09T22:15:00,active,basic,2,51.16,True,mobile
+u1040,Daniel,Martinez,1978-12-31,42,Male,sophia.martinez@example.com,555-678-9012,246 Walnut St,Columbia,CA,37082,2023-01-15 14:23:45,2023-11-12T03:30:00,Active,Premium,16,2165.27,True,Mobile
+u1035,Olivia,Gonzalez,1970-11-21,51,Male,mia.mitchell@example.com,555-001-1223,231 Oak St,Baltimore,OR,74101,2025-09-15T12:45:00,2023-11-08T20:30:00,Active,Premium,2,946.64,True,Desktop
+u123487,Noah,Johnson,1982-04-29,36,Male,lily.young@example.com,555-765-4321,321 Maple St,Coopertown,IL,90001,2023-06-18T13:30:00,2023-09-01T13:20:45,active,premium,21,2447.18,True,mobile
+u1036,Daniel,Robinson,1979-01-29,38,Male,paul.lewis@example.com,555-321-0987,468 Cherry St,Smyrna,TN,37066,2026-02-20T21:30:00,2023-11-05T15:15:00,Active,basic,1,77.88,True,Desktop
+u1034,Alice,Clark,1981-07-29,36,Male,abigail.perez@example.com,555-789-0123,456 Oak St,Los Angeles,CA,60601,2025-06-20T07:30:00,2023-11-06T17:00:00,Active,Basic,20,2912.53,True,mobile
+u123460,William,Garcia,1989-09-01,32,Male,isabella.anderson@example.com,555-123-4567,789 Oak St,Knoxville,TN,37902,2022-02-14T14:10:30,2023-09-09T13:15:30,Active,Basic,5,574.17,True,Mobile
+u123476,Charlotte,Brown,1973-01-21,48,Male,mason.allen@example.com,555-123-4567,123 Spruce St,Houston,IL,02101,2020-09-10T15:45:20,2023-09-05T13:15:30,Active,Premium,5,710.54,True,desktop
+u123459,Jane,Smith,1986-10-04,38,Male,alexander.white@example.com,555-210-9876,321 Pine St,Nashville,TN,37072,2021-05-15T09:45:10,2023-09-12T08:30:45,Active,basic,3,311.58,True,Mobile
+u1033,Mia,Perez,1975-03-05,42,Male,katherine.baker@example.com,555-678-9012,802 Beech St,Gallatin,CA,37188,2025-10-20T14:30:00,2023-11-07T18:45:00,active,Basic,13,1025.51,True,Mobile
+u123489,Benjamin,Lewis,1991-11-25,29,Female,alice.johnson@example.com,555-234-5678,567 Oak St,Smyrna,TN,37172,2023-03-10T14:45:00,2023-09-05T11:05:30,active,premium,2,30.31,True,desktop
+u1005,William,Scott,1999-06-10,26,Female,ella.clark@example.com,555-789-0123,890 Birch St,Chattanooga,TX,37072,2023-09-15T18:45:00,2023-10-10T16:45:00,Active,Premium,20,3228.76,True,Mobile
+u1010,Michael,Brown,1975-10-19,46,Female,jacob.king@example.com,555-445-5667,234 Elm St,Knoxville,TN,37902,2024-03-05T05:15:00,2023-10-17T06:00:00,Active,Basic,5,913.21,True,Mobile
+u123472,Stella,Anderson,1990-12-05,29,Female,logan.wright@example.com,555-123-4567,654 Maple St,Goodlettsville,TN,37072,2019-12-05T16:30:00,2023-09-01T15:45:20,active,Basic,7,843.52,True,Tablet
+u123493,Thomas,Wilson,1978-04-13,37,Female,eve.brown@example.com,555-123-4567,456 Oak St,Dickson,TN,73301,2023-02-20T10:15:00,2023-10-06T09:45:00,active,basic,2,20.24,True,tablet
+u123463,Henry,Johnson,1979-10-10,42,Male,owen.robinson@example.com,555-778-8990,321 Pine St,Shelbyville,IL,37902,2018-09-18T10:20:30,2023-09-08T14:05:20,Active,Premium,6,1308.62,True,Desktop
+u123485,Paul,Green,1979-03-11,38,Male,elijah.carter@example.com,555-234-5678,123 Birch St,Franklin,CO,37135,2020-06-25T14:10:30,2023-09-08T09:50:10,Active,Basic,19,2605.85,True,desktop
+u123473,Sophia,Anderson,1987-06-23,40,Male,sophia.moore@example.com,555-987-6543,321 Pine St,Nashville,TN,37055,2021-03-22T10:15:45,2023-09-03T12:30:45,Active,Basic,13,2530.65,True,Desktop
+u1018,Charlotte,Gonzalez,1988-01-30,38,Female,abigail.perez@example.com,555-234-5678,987 Birch St,Mount Juliet,TN,60601,2024-02-20T03:30:00,2023-10-15T02:30:00,Active,basic,0,1.1,True,Mobile
+u1039,Theo,Baker,1987-06-21,33,Male,daniel.garcia@example.com,555-678-9012,789 Pine St,Denver,TN,97201,2026-03-05T23:15:00,2023-11-13T05:15:00,Active,basic,5,156.1,True,Desktop
+u123481,Aria,Thompson,1978-07-03,45,Male,sophia.king@example.com,555-123-4567,456 Ash St,New York,WA,92101,2021-04-15T13:15:45,2023-09-08T09:50:10,active,premium,6,97.55,True,tablet
+u1039,Mason,Hill,1979-08-31,41,Male,emma.harris@example.com,555-778-8991,321 Cedar St,Houston,TX,76101,2023-01-15 14:23:45,2023-11-11T01:45:00,Active,Basic,5,248.09,True,Mobile
+u123470,Lucas,King,1994-06-15,27,Female,owen.robinson@example.com,555-123-4567,456 Ash St,Greenbrier,IN,02101,2020-10-10T09:45:10,2023-09-03T12:30:45,active,Premium,21,3029.11,True,mobile
+u123486,Olivia,Garcia,1983-08-14,36,Male,elijah.carter@example.com,555-555-1212,987 Maple St,Jackson,IL,37072,2019-04-10T12:00:00,2023-09-06T10:10:30,active,Basic,2,270.22,True,Mobile
+u123478,Uma,Lewis,1982-09-20,34,Female,james.wilson@example.com,555-345-6789,680 Ash St,Lebanon,OH,37135,2021-03-10T11:30:15,2023-09-08T09:50:10,active,basic,6,882.99,True,tablet
+u123476,Mia,Wilson,1998-05-07,26,Female,ava.harris@example.com,555-987-6543,680 Beech St,Goodlettsville,TN,37087,2021-02-28T11:30:15,2023-09-08T09:50:10,active,premium,6,703.84,True,Mobile
+u1014,Isabella,Taylor,1983-04-10,32,Female,stella.rivera@example.com,555-345-6789,456 Walnut St,Murfreesboro,TN,37055,2024-08-10T14:00:00,2023-10-21T13:00:00,Active,basic,1,66.0,True,Tablet
+u123482,Noah,Anderson,1986-10-12,34,Male,eve.brown@example.com,555-665-5443,789 Spruce St,Jacksonville,TN,21201,2019-04-10T12:00:00,2023-09-06T10:10:30,active,basic,15,1008.15,True,tablet

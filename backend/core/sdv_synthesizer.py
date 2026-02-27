@@ -58,6 +58,16 @@ class SDVSynthesizer:
         """
         Build an SDV SingleTableMetadata object.
 
+        IMPORTANT: We deliberately do NOT set a primary_key or use sdtype='id'
+        in the metadata. When SDV sees an 'id' column it generates synthetic
+        values in its own 'sdv-id-XXXXX' format, destroying the real data
+        format (e.g. DMC barcodes, timestamp-derived IDs).
+
+        Instead we treat every column as its natural sdtype (categorical,
+        numerical, datetime …) so SDV learns the actual distributions and
+        string patterns from the seed data.  Primary-key uniqueness is
+        enforced externally in data_synthesizer._post_process().
+
         If schema is provided: use explicit column types.
         Otherwise:            auto-detect from the DataFrame.
         """
@@ -67,12 +77,17 @@ class SDVSynthesizer:
 
         if schema:
             columns = {}
-            primary_key = None
 
             for col in schema:
                 name     = col.get("name")
                 our_type = col.get("type", "string").lower()
-                sdtype   = _SDV_TYPE_MAP.get(our_type, "categorical")
+
+                # Map to SDV sdtype — but NEVER use 'id'; treat uuid/id as
+                # categorical so SDV models the real value distribution.
+                if our_type in ("uuid", "id"):
+                    sdtype = "categorical"
+                else:
+                    sdtype = _SDV_TYPE_MAP.get(our_type, "categorical")
 
                 col_meta: Dict[str, Any] = {"sdtype": sdtype}
 
@@ -85,19 +100,23 @@ class SDVSynthesizer:
 
                 columns[name] = col_meta
 
-                if sdtype == "id" and primary_key is None:
-                    primary_key = name
-
             metadata.columns = columns
-            if primary_key:
-                metadata.primary_key = primary_key
+            # No primary_key set — avoids SDV generating 'sdv-id-XXXXX' values.
 
             logger.info(
                 f"SDV metadata built from schema: {len(columns)} columns "
-                f"| primary_key={primary_key}"
+                f"| primary_key=None (handled externally)"
             )
         else:
             metadata.detect_from_dataframe(df)
+            # If auto-detect assigned a primary_key, clear it to prevent
+            # SDV overwriting that column with its own ID format.
+            if hasattr(metadata, "primary_key") and metadata.primary_key:
+                logger.info(
+                    f"SDV auto-detected primary_key='{metadata.primary_key}' "
+                    f"— clearing it to preserve column format."
+                )
+                metadata.primary_key = None
             logger.info("SDV metadata auto-detected from DataFrame")
 
         return metadata

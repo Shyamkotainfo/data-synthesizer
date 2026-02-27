@@ -69,6 +69,13 @@ Example output:
         desc_line = f"Dataset: {description}" if description else f"Dataset: {dataset_name}"
         criteria_line = f"Extra criteria: {ai_criteria}" if ai_criteria else ""
 
+        sample_ctx = ""
+        if sample_rows:
+            sample_ctx = "\nHere are some sample rows to match the style, formatting, and values:\n"
+            for row in sample_rows[:5]:
+                # Automatically format as CSV string
+                sample_ctx += ", ".join(str(v) for v in row.values()) + "\n"
+
         prompt = f"""Generate exactly {rows} unique rows of synthetic data in CSV format with these columns:
 {col_defs}
 Column order (CSV): {col_names_str}
@@ -76,7 +83,7 @@ Column order (CSV): {col_names_str}
 {desc_line}
 {criteria_line}
 {batch_ctx}
-
+{sample_ctx}
 Rules:
 - Output ONLY comma-separated values. No header row. No markdown. No code blocks.
 - Each row must have exactly {expected_cols} fields — strictly match the column count.

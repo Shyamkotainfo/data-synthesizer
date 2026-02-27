@@ -184,22 +184,44 @@ class DataSynthesizer:
         from core.sdv_synthesizer import SDVSynthesizer
 
         # Step 1 — seed data
-        if sample_df is not None:
+        if sample_df is not None and len(sample_df) >= 50:
             seed_df = sample_df
             self.logger.info(
                 f"Using provided sample data: {len(seed_df):,} rows for SDV training"
             )
         else:
-            seed_rows = max(100, min(300, rows))
+            # Tiered seed size — more seed rows = better SDV fidelity
+            # scaled to the target without over-spending on LLM calls
+            if rows <= 1_000:
+                seed_rows = 100
+            elif rows <= 10_000:
+                seed_rows = 200
+            elif rows <= 100_000:
+                seed_rows = 500
+            elif rows <= 1_000_000:
+                seed_rows = 1_000
+            else:
+                seed_rows = 1_500
+
+            # If sample data exists but is too small (<50 rows), use it to guide the LLM
+            llm_sample_rows = None
+            if sample_df is not None and len(sample_df) < 50:
+                self.logger.info(
+                    f"Provided sample data is too small ({len(sample_df)} rows) for SDV training. "
+                    f"Using it as few-shot examples for LLM seed generation."
+                )
+                llm_sample_rows = sample_df.head(5).fillna("").to_dict(orient="records")
+
             self.logger.info(
-                f"No sample data provided — generating {seed_rows}-row LLM seed for SDV training"
+                f"SDV seed: {seed_rows} LLM rows for {rows:,} target "
+                f"(ratio 1:{rows // seed_rows:,})"
             )
             seed_df = self._generate_llm(
                 rows=seed_rows,
                 dataset_name=dataset_name,
                 description=description,
                 schema=schema,
-                sample_rows=None,
+                sample_rows=llm_sample_rows,
                 ai_criteria=ai_criteria
             )
             self.logger.info(f"LLM seed generated: {len(seed_df):,} rows")
@@ -209,10 +231,25 @@ class DataSynthesizer:
             seed_df = SDVSynthesizer.cast_dtypes(seed_df, schema)
             self.logger.info("Seed data dtypes cast to match schema")
 
+        # Step 2b — Deduplicate seed on primary key (SDV requires unique PK values)
+        pk_col = next((col["name"] for col in (schema or []) if col.get("primary_key")), None)
+        if pk_col and pk_col in seed_df.columns:
+            # Strip whitespace first — LLM sometimes generates values like ' 12345' that
+            # Python treats as unique strings but SDV normalises and flags as duplicates
+            if seed_df[pk_col].dtype == object:
+                seed_df[pk_col] = seed_df[pk_col].str.strip()
+            before = len(seed_df)
+            seed_df = seed_df.drop_duplicates(subset=[pk_col]).reset_index(drop=True)
+            removed = before - len(seed_df)
+            self.logger.info(
+                f"Seed PK dedup ('{pk_col}'): {before} → {len(seed_df)} rows"
+                + (f" ({removed} dupes removed)" if removed else "")
+            )
+
         # Step 3 — SDV Metadata
         metadata = SDVSynthesizer.build_metadata(df=seed_df, schema=schema)
 
-        # Step 3 — Train
+        # Step 4 — Train
         synthesizer = SDVSynthesizer.train(
             df=seed_df,
             metadata=metadata,
@@ -251,8 +288,19 @@ class DataSynthesizer:
 
     # ── Post-processing ───────────────────────────────────────────
     def _post_process(self, df: pd.DataFrame, schema) -> pd.DataFrame:
-        """Replace uuid columns with Python UUIDs and drop duplicate rows."""
+        """
+        Post-process SDV output:
+        1. Replace uuid-type columns with guaranteed-unique Python UUIDs.
+        2. Drop identical duplicate rows (whole-row).
+
+        NOTE: We do NOT enforce PK uniqueness by dropping rows here.
+        SDV is a statistical model — for categorical columns like DMC or ID,
+        it can only sample from values it saw during training.  Forcing PK
+        uniqueness by dropping rows would delete the vast majority of output.
+        Non-unique PKs are reported by the quality checker as a warning.
+        """
         if schema:
+            # Replace uuid-type columns with guaranteed-unique UUIDs
             uuid_cols = [
                 col["name"] for col in schema
                 if col.get("type") == "uuid" and col["name"] in df.columns
@@ -267,8 +315,9 @@ class DataSynthesizer:
         df = df.drop_duplicates().reset_index(drop=True)
         removed = before - len(df)
         if removed > 0:
-            self.logger.info(f"  Removed {removed:,} duplicate row(s)")
+            self.logger.info(f"  Removed {removed:,} exact duplicate row(s)")
         return df
+
 
     # ── Schema discovery ─────────────────────────────────────────
     def _discover_schema(self, dataset_name: str, description=None, ai_criteria=None):

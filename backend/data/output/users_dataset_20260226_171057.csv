@@ -1,0 +1,101 @@
+stop_date,stop_time,county_name,driver_gender,driver_age_raw,driver_age,driver_race,violation_raw,violation,search_conducted,search_type,stop_outcome,is_arrested,stop_duration,drugs_related_stop
+2023-10-19,2026-02-26,22.9107,Male,53.0,53.0,Hispanic,Reckless Driving,Seat Belt,True,,Warning,Yes,30 minutes,False
+2023-10-18,2026-02-26,77.7979,Male,49.0,49.0,Hispanic,DUI,Speeding,True,Probable Cause,Warning,Yes,5 minutes,False
+2023-10-09,2026-02-26,48.2723,Male,33.0,33.0,White,DUI,Seat Belt,False,Probable Cause,Arrest,No,10 minutes,False
+2023-10-07,2026-02-26,37.9181,Male,43.0,43.0,White,Speeding,DUI,True,,Arrest,No,28 minutes,True
+2023-10-30,2026-02-26,60.674,Male,39.0,39.0,Asian,Reckless Driving,Reckless Driving,False,Warrant,Arrest,No,23 minutes,False
+2023-10-09,2026-02-26,23.5454,Male,60.0,60.0,White,Speeding,DUI,True,Vehicle,Citation,No,32 minutes,False
+2023-10-18,2026-02-26,26.5565,Male,37.0,37.0,Asian,Reckless Driving,DUI,False,Consent,Arrest,No,15 minutes,False
+2023-10-23,2026-02-26,6.5829,Male,34.0,34.0,Asian,Speeding,Speeding,False,Consent,Arrest,No,6 minutes,False
+2023-10-23,2026-02-26,7.5095,Female,52.0,52.0,Black,Speeding,Speeding,True,Consent,Citation,Yes,27 minutes,True
+2023-10-22,2026-02-26,89.1414,Male,24.0,24.0,Hispanic,DUI,Seat Belt,False,Vehicle,Arrest,No,17 minutes,False
+2023-10-08,2026-02-26,16.1185,Female,58.0,58.0,Asian,DUI,Speeding,True,Vehicle,Arrest,No,15 minutes,True
+2023-10-16,2026-02-26,89.4633,Female,24.0,24.0,White,Speeding,DUI,True,Probable Cause,Arrest,No,2 minutes,False
+2023-10-15,2026-02-26,12.9136,Female,63.0,63.0,Hispanic,Seat Belt,Seat Belt,True,Personal,Arrest,Yes,7 minutes,True
+2023-10-01,2026-02-26,15.5458,Female,45.0,45.0,Hispanic,Speeding,Seat Belt,True,Personal,Warning,Yes,25 minutes,False
+2023-11-08,2026-02-26,84.871,Female,23.0,23.0,Hispanic,DUI,Speeding,False,Consent,Arrest,No,20 minutes,False
+2023-10-06,2026-02-26,65.0419,Female,28.0,28.0,Asian,Reckless Driving,Reckless Driving,True,Vehicle,Warning,Yes,7 minutes,False
+2023-10-24,2026-02-26,24.0201,Female,26.0,26.0,Black,Reckless Driving,Reckless Driving,True,Probable Cause,Citation,No,20 minutes,True
+2023-10-28,2026-02-26,85.6661,Male,29.0,29.0,Asian,Seat Belt,Speeding,False,Vehicle,Warning,No,3 minutes,False
+2023-10-05,2026-02-26,87.1547,Male,35.0,35.0,White,Speeding,Speeding,False,Consent,Arrest,No,25 minutes,True
+2023-10-10,2026-02-26,19.0747,Male,54.0,54.0,Black,Seat Belt,Reckless Driving,False,Vehicle,Warning,No,7 minutes,False
+2023-11-05,2026-02-26,40.964,Female,47.0,47.0,Hispanic,Seat Belt,Speeding,True,Probable Cause,Citation,Yes,15 minutes,False
+2023-10-06,2026-02-26,6.312,Female,56.0,56.0,Black,DUI,Reckless Driving,True,Vehicle,Arrest,No,5 minutes,True
+2023-10-06,2026-02-26,54.8549,Female,46.0,46.0,Asian,Speeding,Seat Belt,True,Vehicle,Warning,No,15 minutes,False
+2023-10-10,2026-02-26,66.7086,Male,45.0,45.0,Black,Speeding,DUI,True,,Warning,Yes,27 minutes,True
+2023-10-01,2026-02-26,70.3582,Male,30.0,30.0,Hispanic,Reckless Driving,Seat Belt,False,Vehicle,Warning,No,5 minutes,False
+2023-10-13,2026-02-26,14.5529,Male,49.0,49.0,Black,Reckless Driving,Reckless Driving,False,,Warning,Yes,25 minutes,False
+2023-10-17,2026-02-26,74.0142,Male,42.0,42.0,Black,Seat Belt,Reckless Driving,True,,Warning,Yes,4 minutes,False
+2023-10-30,2026-02-26,83.3273,Female,39.0,39.0,Hispanic,Speeding,Speeding,True,Probable Cause,Warning,No,3 minutes,False
+2023-11-04,2026-02-26,80.9915,Male,30.0,30.0,White,Speeding,Speeding,True,,Warning,Yes,25 minutes,True
+2023-11-04,2026-02-26,78.5506,Male,61.0,61.0,White,Seat Belt,Speeding,True,Probable Cause,Citation,Yes,7 minutes,False
+2023-10-27,2026-02-26,25.457,Female,45.0,45.0,Hispanic,DUI,Speeding,False,Consent,Citation,No,16 minutes,True
+2023-10-11,2026-02-26,7.9863,Male,50.0,50.0,Hispanic,Seat Belt,Speeding,True,Vehicle,Arrest,No,15 minutes,True
+2023-10-31,2026-02-26,85.8185,Male,24.0,24.0,Hispanic,DUI,Speeding,True,,Citation,No,8 minutes,True
+2023-10-08,2026-02-26,61.767,Male,60.0,60.0,White,DUI,Reckless Driving,True,Vehicle,Citation,No,18 minutes,True
+2023-10-02,2026-02-26,48.9901,Male,31.0,31.0,Black,Seat Belt,Reckless Driving,False,,Warning,No,6 minutes,False
+2023-10-23,2026-02-26,9.9049,Male,38.0,38.0,Black,Seat Belt,Seat Belt,True,,Arrest,Yes,10 minutes,True
+2023-10-11,2026-02-26,59.6717,Male,55.0,55.0,White,DUI,DUI,True,,Citation,Yes,25 minutes,False
+2023-10-01,2026-02-26,74.1933,Male,31.0,31.0,Hispanic,DUI,Seat Belt,True,Vehicle,Warning,No,5 minutes,False
+2023-10-08,2026-02-26,44.1925,Female,47.0,47.0,Asian,Reckless Driving,Seat Belt,True,Vehicle,Warning,No,15 minutes,False
+2023-10-05,2026-02-26,23.6628,Female,29.0,29.0,Asian,Reckless Driving,DUI,False,Vehicle,Warning,No,30 minutes,True
+2023-10-04,2026-02-26,40.4505,Female,24.0,24.0,Asian,DUI,Reckless Driving,False,,Warning,No,5 minutes,False
+2023-10-20,2026-02-26,87.2112,Male,42.0,42.0,Asian,Reckless Driving,Reckless Driving,True,,Warning,Yes,27 minutes,False
+2023-10-05,2026-02-26,2.3481,Female,58.0,58.0,Hispanic,DUI,Speeding,True,Vehicle,Arrest,No,16 minutes,False
+2023-11-07,2026-02-26,18.529,Male,51.0,51.0,Asian,Speeding,Speeding,True,,Arrest,Yes,26 minutes,False
+2023-10-20,2026-02-26,87.7728,Male,27.0,27.0,White,Speeding,DUI,False,Consent,Arrest,No,8 minutes,False
+2023-10-05,2026-02-26,17.4921,Female,42.0,42.0,Hispanic,Speeding,Speeding,True,,Warning,No,25 minutes,True
+2023-10-15,2026-02-26,44.6943,Female,61.0,61.0,White,Speeding,DUI,False,,Arrest,No,2 minutes,True
+2023-10-31,2026-02-26,24.9452,Male,61.0,61.0,Hispanic,Reckless Driving,Seat Belt,False,Vehicle,Warning,Yes,14 minutes,False
+2023-10-29,2026-02-26,85.9759,Female,55.0,55.0,Asian,DUI,DUI,False,Vehicle,Warning,No,18 minutes,False
+2023-11-05,2026-02-26,47.9288,Female,62.0,62.0,Black,Reckless Driving,Seat Belt,False,,Citation,No,32 minutes,False
+2023-10-01,2026-02-26,81.5296,Male,32.0,32.0,White,Speeding,Speeding,False,Probable Cause,Arrest,No,16 minutes,True
+2023-10-04,2026-02-26,10.2962,Female,50.0,50.0,Hispanic,DUI,DUI,True,Warrant,Warning,No,10 minutes,False
+2023-10-18,2026-02-26,85.4384,Male,49.0,49.0,Hispanic,Reckless Driving,Reckless Driving,False,,Warning,No,25 minutes,False
+2023-10-05,2026-02-26,18.5396,Female,54.0,54.0,Asian,Seat Belt,Seat Belt,True,,Arrest,No,7 minutes,False
+2023-10-26,2026-02-26,26.5171,Male,58.0,58.0,White,Seat Belt,Reckless Driving,True,Vehicle,Arrest,Yes,19 minutes,False
+2023-10-10,2026-02-26,44.7506,Female,33.0,33.0,Hispanic,Seat Belt,Seat Belt,True,Warrant,Warning,No,25 minutes,False
+2023-10-07,2026-02-26,11.5993,Male,39.0,39.0,Hispanic,Speeding,Speeding,True,Warrant,Arrest,No,22 minutes,True
+2023-10-24,2026-02-26,3.9398,Female,61.0,61.0,Asian,Seat Belt,Reckless Driving,True,Personal,Citation,No,15 minutes,False
+2023-10-11,2026-02-26,34.6659,Male,29.0,29.0,White,Speeding,DUI,True,Vehicle,Citation,No,10 minutes,False
+2023-10-16,2026-02-26,85.2817,Male,54.0,54.0,Black,Seat Belt,Speeding,True,,Warning,Yes,7 minutes,False
+2023-10-26,2026-02-26,43.0309,Male,61.0,61.0,Black,Seat Belt,DUI,True,,Arrest,No,8 minutes,False
+2023-10-03,2026-02-26,12.3597,Male,30.0,30.0,Asian,Seat Belt,Reckless Driving,True,Vehicle,Warning,Yes,25 minutes,False
+2023-10-28,2026-02-26,56.406,Male,43.0,43.0,Asian,Reckless Driving,Reckless Driving,True,,Arrest,No,20 minutes,False
+2023-10-11,2026-02-26,65.6225,Female,26.0,26.0,Asian,DUI,DUI,True,Consent,Warning,No,26 minutes,False
+2023-10-31,2026-02-26,68.7844,Female,35.0,35.0,Asian,Reckless Driving,Seat Belt,True,Probable Cause,Warning,Yes,15 minutes,False
+2023-10-12,2026-02-26,56.4482,Male,52.0,52.0,Black,Reckless Driving,DUI,True,Probable Cause,Citation,Yes,10 minutes,False
+2023-10-28,2026-02-26,40.6182,Female,48.0,48.0,Hispanic,Speeding,DUI,False,Vehicle,Warning,Yes,14 minutes,False
+2023-10-13,2026-02-26,88.2713,Male,42.0,42.0,Hispanic,Reckless Driving,Reckless Driving,False,Vehicle,Warning,Yes,25 minutes,False
+2023-10-10,2026-02-26,34.2307,Male,61.0,61.0,Asian,Seat Belt,Seat Belt,True,Vehicle,Arrest,No,5 minutes,False
+2023-10-19,2026-02-26,40.2765,Male,38.0,38.0,Black,Seat Belt,Reckless Driving,True,Vehicle,Citation,Yes,8 minutes,False
+2023-10-03,2026-02-26,85.4323,Male,31.0,31.0,White,Seat Belt,DUI,True,Probable Cause,Arrest,No,20 minutes,False
+2023-10-19,2026-02-26,55.5402,Female,47.0,47.0,Asian,Seat Belt,Seat Belt,True,,Arrest,Yes,7 minutes,True
+2023-10-26,2026-02-26,64.4405,Male,59.0,59.0,White,Speeding,Speeding,False,Probable Cause,Arrest,Yes,5 minutes,False
+2023-10-28,2026-02-26,8.5283,Female,26.0,26.0,Hispanic,Reckless Driving,Seat Belt,False,Probable Cause,Arrest,No,15 minutes,False
+2023-10-19,2026-02-26,78.902,Male,25.0,25.0,Hispanic,Reckless Driving,Reckless Driving,False,Vehicle,Warning,No,5 minutes,False
+2023-10-30,2026-02-26,86.8363,Male,25.0,25.0,White,Seat Belt,Speeding,False,Consent,Arrest,No,5 minutes,False
+2023-10-07,2026-02-26,72.3472,Male,40.0,40.0,Hispanic,DUI,Speeding,True,,Arrest,No,25 minutes,True
+2023-10-30,2026-02-26,44.6795,Female,61.0,61.0,Asian,Reckless Driving,Reckless Driving,True,,Citation,Yes,25 minutes,True
+2023-10-24,2026-02-26,35.0213,Male,57.0,57.0,Hispanic,Seat Belt,DUI,True,Vehicle,Warning,No,32 minutes,False
+2023-11-02,2026-02-26,43.9181,Male,27.0,27.0,Hispanic,DUI,Seat Belt,True,Vehicle,Arrest,Yes,4 minutes,False
+2023-10-14,2026-02-26,80.4985,Male,50.0,50.0,White,Seat Belt,Seat Belt,False,,Arrest,Yes,6 minutes,False
+2023-10-07,2026-02-26,40.7427,Female,46.0,46.0,Asian,Speeding,DUI,True,Vehicle,Warning,No,25 minutes,False
+2023-10-30,2026-02-26,88.6448,Male,27.0,27.0,Black,Reckless Driving,Reckless Driving,False,Warrant,Warning,No,25 minutes,False
+2023-11-06,2026-02-26,87.5835,Male,60.0,60.0,Hispanic,Seat Belt,Seat Belt,True,,Citation,Yes,20 minutes,False
+2023-10-03,2026-02-26,31.9144,Male,55.0,55.0,Black,DUI,Speeding,True,Vehicle,Warning,No,5 minutes,False
+2023-11-06,2026-02-26,77.5001,Male,28.0,28.0,Black,Seat Belt,Seat Belt,False,,Arrest,Yes,20 minutes,False
+2023-10-16,2026-02-26,47.519,Female,49.0,49.0,Asian,Seat Belt,DUI,True,Warrant,Arrest,Yes,25 minutes,True
+2023-10-27,2026-02-26,64.6364,Female,50.0,50.0,Hispanic,Seat Belt,Seat Belt,True,Vehicle,Arrest,Yes,22 minutes,False
+2023-10-11,2026-02-26,41.8419,Female,55.0,55.0,Asian,Reckless Driving,Seat Belt,True,,Warning,No,15 minutes,True
+2023-10-04,2026-02-26,8.6032,Female,26.0,26.0,Asian,Reckless Driving,Reckless Driving,True,,Arrest,No,25 minutes,False
+2023-10-11,2026-02-26,33.5384,Male,53.0,53.0,Hispanic,Speeding,Seat Belt,True,,Arrest,No,15 minutes,False
+2023-10-22,2026-02-26,1.3344,Female,55.0,55.0,Asian,Seat Belt,Speeding,True,Vehicle,Arrest,Yes,25 minutes,True
+2023-10-02,2026-02-26,86.822,Male,23.0,23.0,White,Speeding,Speeding,False,Warrant,Warning,No,23 minutes,False
+2023-10-04,2026-02-26,2.803,Female,35.0,35.0,Hispanic,Speeding,Speeding,True,Vehicle,Arrest,Yes,20 minutes,True
+2023-10-03,2026-02-26,43.1662,Male,45.0,45.0,White,Reckless Driving,Reckless Driving,False,Vehicle,Warning,No,17 minutes,False
+2023-11-09,2026-02-26,78.0097,Female,29.0,29.0,Asian,Reckless Driving,DUI,True,Probable Cause,Arrest,No,15 minutes,True
+2023-10-23,2026-02-26,45.0297,Female,53.0,53.0,Hispanic,Seat Belt,DUI,True,Warrant,Citation,Yes,19 minutes,True
+2023-10-01,2026-02-26,38.9519,Female,45.0,45.0,White,Speeding,Speeding,True,Probable Cause,Warning,No,25 minutes,False
+2023-10-09,2026-02-26,9.7819,Female,34.0,34.0,Asian,Reckless Driving,Seat Belt,True,Vehicle,Warning,No,5 minutes,False
+2023-10-27,2026-02-26,63.269,Male,47.0,47.0,Hispanic,Seat Belt,Speeding,True,,Citation,No,8 minutes,True
