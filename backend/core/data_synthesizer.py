@@ -186,30 +186,58 @@ class DataSynthesizer:
     def _generate_in_batches(self, rows, dataset_name, description,
                               resolved_schema, sample_rows, ai_criteria,
                               batch_size=20, primary_key=None):
-        """Split large requests into column-aware batches to stay within token limits."""
+        """Split large requests into parallel column-aware batches using ThreadPoolExecutor."""
         num_batches = math.ceil(rows / batch_size)
-        all_frames = []
         use_csv = resolved_schema is not None   # CSV mode when schema known
 
+        # Determine worker count based on requested rows
+        if rows <= 1000:
+            max_workers = min(5, num_batches)
+        elif rows <= 10000:
+            max_workers = min(10, num_batches)
+        else:
+            max_workers = min(20, num_batches)
+            
+        self.logger.info(f"Initializing parallel generation: {rows} rows across {num_batches} batches using {max_workers} concurrent workers.")
 
-        # Keep track of globally seen PKs so we don't allow duplicates *across* batches either
-        seen_pks = set()
-
+        # Pre-calculate exactly what every single batch should do
+        batch_definitions = []
         for batch_num in range(1, num_batches + 1):
             target_batch_rows = min(batch_size, rows - (batch_num - 1) * batch_size)
             batch_start_idx = ((batch_num - 1) * batch_size) + 1
             batch_end_idx = batch_start_idx + target_batch_rows - 1
+            
+            batch_definitions.append({
+                "batch_num": batch_num,
+                "target_rows": target_batch_rows,
+                "start_idx": batch_start_idx,
+                "end_idx": batch_end_idx
+            })
 
-            self.logger.info(f"  Batch {batch_num}/{num_batches}: generating rows {batch_start_idx}-{batch_end_idx}...")
+        import concurrent.futures
+        import threading
+        
+        # Thread-safe global PK tracker to stop isolated workers from hallucinatory collisions
+        global_seen_pks = set()
+        pk_lock = threading.Lock()
 
-            rows_needed = target_batch_rows
+        # The isolated worker function that runs in its own thread
+        def _execute_batch(job_def):
+            batch_num = job_def["batch_num"]
+            target_rows = job_def["target_rows"]
+            start_idx = job_def["start_idx"]
+            end_idx = job_def["end_idx"]
+            
+            self.logger.info(f"  [Worker] Starting Batch {batch_num}/{num_batches}: rows {start_idx}-{end_idx}...")
+
+            rows_needed = target_rows
             batch_frames = []
             retry_count = 0
             max_retries = 3
 
             while rows_needed > 0 and retry_count <= max_retries:
                 if retry_count > 0:
-                    self.logger.info(f"    Retry {retry_count}/{max_retries}: regenerating {rows_needed} missing/duplicate rows...")
+                    self.logger.info(f"    [Worker Batch {batch_num}] Retry {retry_count}/{max_retries}: regenerating {rows_needed} rows...")
 
                 prompt = DatasetPromptBuilder.build(
                     dataset_name=dataset_name,
@@ -219,8 +247,8 @@ class DataSynthesizer:
                     sample_rows=sample_rows,
                     ai_criteria=ai_criteria,
                     primary_key=primary_key,
-                    batch_start_idx=batch_start_idx + (target_batch_rows - rows_needed),
-                    batch_end_idx=batch_end_idx
+                    batch_start_idx=start_idx + (target_rows - rows_needed),
+                    batch_end_idx=end_idx
                 )
 
                 response = self.llm.generate(
@@ -240,31 +268,59 @@ class DataSynthesizer:
                         # Drop nulls
                         df_chunk = df_chunk.dropna(subset=[primary_key])
                         df_chunk = df_chunk[df_chunk[primary_key] != ""]
-                        
                         # Drop intra-chunk duplicates
                         df_chunk = df_chunk.drop_duplicates(subset=[primary_key], keep='first')
                         
-                        # Drop cross-batch duplicates
-                        df_chunk = df_chunk[~df_chunk[primary_key].isin(seen_pks)]
-                        
-                        # Update seen set
-                        seen_pks.update(df_chunk[primary_key].tolist())
+                        # Thread-safe global cross-worker deduplication
+                        with pk_lock:
+                            # 1. Strip rows whose PK has already been claimed globally by another worker
+                            df_chunk = df_chunk[~df_chunk[primary_key].isin(global_seen_pks)]
+                            # 2. Add our surviving PKs to the global registry so no one else can take them
+                            global_seen_pks.update(df_chunk[primary_key].tolist())
 
                     batch_frames.append(df_chunk)
                     rows_needed -= len(df_chunk)
 
                 except Exception as e:
-                    self.logger.warning(f"    Parse error during generation: {e}")
+                    self.logger.warning(f"    [Worker Batch {batch_num}] Parse error: {e}")
                 
                 retry_count += 1
 
             if rows_needed > 0:
-                self.logger.warning(f"    Could not safely generate {rows_needed} rows after {max_retries} retries. Proceeding with fewer rows.")
+                self.logger.warning(f"    [Worker Batch {batch_num}] Could not safely generate {rows_needed} rows after {max_retries} retries.")
 
-            if batch_frames:
-                all_frames.append(pd.concat(batch_frames, ignore_index=True))
+            final_batch_df = pd.concat(batch_frames, ignore_index=True) if batch_frames else pd.DataFrame()
+            return {"batch_num": batch_num, "df": final_batch_df}
 
-        return pd.concat(all_frames, ignore_index=True) if all_frames else pd.DataFrame()
+        # Issue the jobs completely in parallel
+        completed_results = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_batch = {executor.submit(_execute_batch, b_def): b_def for b_def in batch_definitions}
+            
+            for future in concurrent.futures.as_completed(future_to_batch):
+                try:
+                    result = future.result()
+                    completed_results.append(result)
+                except Exception as exc:
+                    self.logger.error(f"  [Worker] Batch generated an exception: {exc}")
+
+        # The threads will finish out of order (e.g., Batch 4 might finish before Batch 1).
+        # We MUST sort them by batch_num to perfectly reconstruct the sequential dataset.
+        completed_results.sort(key=lambda x: x["batch_num"])
+        
+        all_frames = [r["df"] for r in completed_results if not r["df"].empty]
+
+        # Final concatenation & global de-duplication safety net
+        if all_frames:
+            final_df = pd.concat(all_frames, ignore_index=True)
+            if primary_key and primary_key in final_df.columns:
+                original_len = len(final_df)
+                final_df = final_df.drop_duplicates(subset=[primary_key], keep='first')
+                if len(final_df) < original_len:
+                    self.logger.warning(f"Dropped {original_len - len(final_df)} global distinct duplicate keys across parallel threads.")
+            return final_df
+        else:
+            return pd.DataFrame()
 
     # -------------------------------------------------
     # PARSE LLM RESPONSE

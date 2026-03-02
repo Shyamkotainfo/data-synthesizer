@@ -125,7 +125,7 @@ class DatasetPromptBuilder:
         description_block = f"\nDataset context: {description}" if description else ""
         criteria_block = f"\nUser Instructions / AI Criteria: {ai_criteria}" if ai_criteria else ""
 
-        prompt = f"""Generate exactly {rows} unique rows of synthetic data for dataset "{dataset_name}".
+        prompt = f"""Generate EXACTLY {rows} unique rows of synthetic data for dataset "{dataset_name}".
 This is a PARTIAL BATCH: you are generating rows {batch_start_idx} through {batch_end_idx}.
 {description_block}{criteria_block}
 
@@ -133,16 +133,15 @@ Column definitions ({num_cols} columns total):
 {col_defs_str}
 {sample_block}
 
-**Rules — read carefully or generation will fail:**
-- 🚫 DO NOT include headers, explanations, summaries, or additional text.
-- ✅ Output ONLY comma-separated values. No markdown. No code fences (```). No bullets.
-- ✅ Each row must have exactly {num_cols} fields — strictly match the column count in this order: {col_names_str}.
-- ✅ Strings should **NOT** be wrapped in quotes unless the string contains commas or quotes that require escaping (e.g. `user101` ✅, not `"user101"` ❌).
-- ✅ Primary keys MUST carry over properly across batches. Since you are generating rows {batch_start_idx}-{batch_end_idx}, ensure sequential IDs and data values continue naturally from {batch_start_idx}.
-- ✅ Every single row must be unique worldwide. The "{pk_col or 'first'}" column is the PRIMARY KEY.
-- ✅ Do NOT add trailing text like "And so on..." or "Here are your rows...".
+**CRITICAL RULES — Read carefully or the system will reject your output:**
+1. 🛑 STRICT ROW COUNT: You MUST generate EXACTLY {rows} rows. Do NOT stop early. Count them internally to ensure you output precisely {rows} lines of data. Do NOT output {rows - 1} or {rows + 1} rows.
+2. 🛑 STRICT UNIQUENESS: Every single row must be unique. The "{pk_col or 'first'}" column is the PRIMARY KEY. You MUST NOT generate duplicate values for this column within this batch.
+3. 🛑 NO EXTRA TEXT: Output ONLY raw comma-separated values. No headers, no markdown fences (```), no bullets, no explanations, no "Here are your rows".
+4. 🛑 COLUMN COUNT: Each row must have exactly {num_cols} fields mapped to: {col_names_str}.
+5. 🛑 CONTINUITY: Primary keys MUST carry over properly across batches. Since you are generating rows {batch_start_idx}-{batch_end_idx}, ensure sequential IDs and data values continue naturally from {batch_start_idx}.
+6. 🛑 QUOTING: Strings should NOT be wrapped in quotes unless the string intrinsically contains commas or quotes. (e.g. `user101` ✅, `"user101"` ❌).
 
-Output (raw CSV only, no header):"""
+Output (raw CSV only, exactly {rows} rows, no header):"""
 
         return prompt.strip()
 
