@@ -43,6 +43,7 @@ class DatasetPromptBuilder:
         primary_key=None,       # explicit PK column name (confirmed by user)
         batch_start_idx=1,      # pagination: which row # we start at
         batch_end_idx=None,     # pagination: which row # we end at
+        preseeded_pks=None,     # Optional list of exactly which PKs to use
     ):
         """
         Build the LLM prompt.
@@ -61,6 +62,7 @@ class DatasetPromptBuilder:
                 primary_key=primary_key,
                 batch_start_idx=batch_start_idx,
                 batch_end_idx=batch_end_idx or rows,
+                preseeded_pks=preseeded_pks
             )
         else:
             return DatasetPromptBuilder._build_json_prompt(
@@ -78,7 +80,8 @@ class DatasetPromptBuilder:
     def _build_csv_prompt(dataset_name, rows, schema,
                           description=None, sample_rows=None,
                           ai_criteria=None, primary_key=None,
-                          batch_start_idx=1, batch_end_idx=None):
+                          batch_start_idx=1, batch_end_idx=None,
+                          preseeded_pks=None):
 
         # Use confirmed PK if given, otherwise auto-detect from schema
         pk_col = primary_key or _detect_primary_key(schema)
@@ -124,10 +127,20 @@ class DatasetPromptBuilder:
 
         description_block = f"\nDataset context: {description}" if description else ""
         criteria_block = f"\nUser Instructions / AI Criteria: {ai_criteria}" if ai_criteria else ""
+        
+        preseed_block = ""
+        if preseeded_pks:
+            preseed_block = (
+                f"\n\n🛑🛑 PRE-SEEDED PRIMARY KEYS 🛑🛑\n"
+                f"You MUST use the following exact {len(preseeded_pks)} values for the '{pk_col}' column, "
+                f"in this exact order, one for each row you generate:\n"
+                f"{json.dumps(preseeded_pks)}\n"
+                f"DO NOT INVENT YOUR OWN IDs. Use ONLY the ones from this array."
+            )
 
         prompt = f"""Generate EXACTLY {rows} unique rows of synthetic data for dataset "{dataset_name}".
 This is a PARTIAL BATCH: you are generating rows {batch_start_idx} through {batch_end_idx}.
-{description_block}{criteria_block}
+{description_block}{criteria_block}{preseed_block}
 
 Column definitions ({num_cols} columns total):
 {col_defs_str}

@@ -98,6 +98,8 @@ class GenerateRequest(BaseModel):
     ai_criteria: Optional[str] = Field(default=None, example="Generate realistic US-based users aged 18-65")
     target_location: Optional[str] = Field(default=None, example=None)
     columns: Optional[List[SchemaColumn]] = None
+    primary_key: Optional[str] = Field(default=None, example="user_id", description="Explicitly set the primary key column for generation")
+    sample_rows: Optional[List[dict]] = Field(default=None, description="Provide 3-5 example rows mapped exactly to your schema to give the LLM context")
 
     model_config = {
         "json_schema_extra": {
@@ -115,7 +117,8 @@ class GenerateRequest(BaseModel):
                     {"name": "age",        "type": "integer", "nullable": False, "pattern": "18-65"},
                     {"name": "city",       "type": "string",  "nullable": True},
                     {"name": "is_active",  "type": "boolean", "nullable": False}
-                ]
+                ],
+                "primary_key": "user_id"
             }
         }
     }
@@ -142,7 +145,7 @@ class HistoryItem(BaseModel):
     status: str
 
 
-class PreviewResponse(BaseModel):
+class AnalyzeResponse(BaseModel):
     dataset_name: str
     rows: int
     format: str
@@ -150,6 +153,8 @@ class PreviewResponse(BaseModel):
     ai_criteria: Optional[str]
     target_location: Optional[str]
     columns: Optional[List[dict]]
+    sample_rows: Optional[List[dict]]
+    primary_key: Optional[str]
     prompt_preview: str
     ready_to_generate: bool = True
 
@@ -176,17 +181,18 @@ def health():
     }
 
 
-@app.post("/preview", response_model=PreviewResponse, tags=["Generation"])
-def preview_dataset(req: GenerateRequest):
+@app.post("/analyze", response_model=AnalyzeResponse, tags=["Generation"])
+def analyze_dataset(req: GenerateRequest):
     """
-    Step 1 of 2 — Preview before generating.
+    Step 1 of 2 — Analyze & Preview before generating.
 
     Validates your request and returns a summary of:
     - All columns with name, type, nullable, pattern
+    - The AUTO-DETECTED Primary Key (or the one you explicitly provided)
     - The exact prompt that will be sent to the LLM
     - Dataset settings (rows, format, etc.)
 
-    Does NOT call the LLM. Call POST /generate to actually produce the data.
+    Does NOT call the LLM. Once the user approves the primary_key, call POST /generate.
     """
 
     from core.input_processor import InputProcessor
@@ -201,11 +207,18 @@ def preview_dataset(req: GenerateRequest):
         "target_location": req.target_location,
         "schema": [col.model_dump(exclude_none=True) for col in req.columns] if req.columns else None,
         "schema_file": None,
+        "sample_rows": req.sample_rows,
         "sample_file": None,
     }
 
     processor = InputProcessor()
     request = processor.build_request(raw_input)
+
+    # Auto-detect PK if not explicitly provided
+    detected_pk = req.primary_key
+    if not detected_pk and request.get("schema"):
+        from prompt.dataset_prompt import _detect_primary_key
+        detected_pk = _detect_primary_key(request["schema"])
 
     prompt = DatasetPromptBuilder.build(
         dataset_name=request["dataset_name"],
@@ -213,9 +226,10 @@ def preview_dataset(req: GenerateRequest):
         description=request.get("description"),
         schema=request.get("schema"),
         ai_criteria=request.get("ai_criteria"),
+        primary_key=detected_pk
     )
 
-    return PreviewResponse(
+    return AnalyzeResponse(
         dataset_name=req.dataset_name,
         rows=req.rows,
         format=req.format,
@@ -223,6 +237,8 @@ def preview_dataset(req: GenerateRequest):
         ai_criteria=req.ai_criteria,
         target_location=req.target_location,
         columns=request.get("schema"),
+        sample_rows=request.get("sample_rows"),
+        primary_key=detected_pk,
         prompt_preview=prompt,
         ready_to_generate=True
     )
@@ -248,7 +264,9 @@ def generate_dataset(req: GenerateRequest):
         "ai_criteria": req.ai_criteria,
         "target_location": req.target_location,
         "schema": [col.model_dump(exclude_none=True) for col in req.columns] if req.columns else None,
+        "primary_key": req.primary_key,
         "schema_file": None,
+        "sample_rows": req.sample_rows,
         "sample_file": None,
     }
 

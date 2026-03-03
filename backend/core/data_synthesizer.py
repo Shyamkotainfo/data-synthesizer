@@ -239,6 +239,14 @@ class DataSynthesizer:
                 if retry_count > 0:
                     self.logger.info(f"    [Worker Batch {batch_num}] Retry {retry_count}/{max_retries}: regenerating {rows_needed} rows...")
 
+                # Calculate exactly the PKs this worker must use for this specific attempt
+                current_start_idx = start_idx + (target_rows - rows_needed)
+                preseeded_pks = None
+                if primary_key:
+                    # e.g., if PK is "DMC", we pre-seed ["DMC-101", "DMC-102"...] based on global index
+                    prefix = str(primary_key).replace(" ", "").upper()
+                    preseeded_pks = [f"{prefix}-{current_start_idx + i}" for i in range(rows_needed)]
+
                 prompt = DatasetPromptBuilder.build(
                     dataset_name=dataset_name,
                     rows=rows_needed,
@@ -247,8 +255,9 @@ class DataSynthesizer:
                     sample_rows=sample_rows,
                     ai_criteria=ai_criteria,
                     primary_key=primary_key,
-                    batch_start_idx=start_idx + (target_rows - rows_needed),
-                    batch_end_idx=end_idx
+                    batch_start_idx=current_start_idx,
+                    batch_end_idx=end_idx,
+                    preseeded_pks=preseeded_pks
                 )
 
                 response = self.llm.generate(
