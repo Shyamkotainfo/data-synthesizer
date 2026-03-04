@@ -206,11 +206,7 @@ jobs:
                 \"ImageRepository\": {
                   \"ImageIdentifier\": \"$IMAGE_URI\",
                   \"ImageConfiguration\": {
-                    \"Port\": \"8080\",
-                    \"RuntimeEnvironmentVariables\": {
-                      \"ENVIRONMENT\": \"$ENV_NAME\",
-                      \"AWS_REGION\": \"$AWS_REGION\"
-                    }
+                    \"Port\": \"8080\"
                   },
                   \"ImageRepositoryType\": \"ECR\"
                 },

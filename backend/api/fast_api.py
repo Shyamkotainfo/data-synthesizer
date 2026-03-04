@@ -129,7 +129,9 @@ class GenerateResponse(BaseModel):
     dataset_name: str
     rows_generated: int
     columns: List[str]
-    file_path: str
+    file_path: str          # local path (empty on App Runner)
+    s3_key: Optional[str]   # S3 object key
+    s3_url: Optional[str]   # presigned download URL (1 hour)
     format: str
     generated_at: str
 
@@ -160,11 +162,53 @@ class AnalyzeResponse(BaseModel):
 
 
 # ─────────────────────────────────────────
-# Helper: tsv save support
+# Helper: TSV save support
 # ─────────────────────────────────────────
 
 def _save_tsv(df, path):
     df.to_csv(path, index=False, sep="\t")
+
+
+# ─────────────────────────────────────────
+# Helper: Upload generated file to S3
+# ─────────────────────────────────────────
+
+def _upload_to_s3(file_path: str, dataset_name: str) -> tuple[str, str]:
+    """
+    Upload a local file to S3 and return (s3_key, presigned_url).
+    The presigned URL is valid for 1 hour.
+    """
+    import boto3
+    bucket = settings.s3_bucket
+    filename = os.path.basename(file_path)
+    s3_key = f"datasets/{dataset_name}/{filename}"
+
+    s3 = boto3.client("s3", region_name=settings.aws_region)
+
+    # Ensure bucket exists
+    try:
+        s3.head_bucket(Bucket=bucket)
+    except Exception:
+        logger.info(f"Creating S3 bucket: {bucket}")
+        if settings.aws_region == "us-east-1":
+            s3.create_bucket(Bucket=bucket)
+        else:
+            s3.create_bucket(
+                Bucket=bucket,
+                CreateBucketConfiguration={"LocationConstraint": settings.aws_region}
+            )
+
+    # Upload the file
+    s3.upload_file(file_path, bucket, s3_key)
+    logger.info(f"Uploaded to s3://{bucket}/{s3_key}")
+
+    # Generate presigned URL (1 hour expiry)
+    presigned_url = s3.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": bucket, "Key": s3_key},
+        ExpiresIn=3600
+    )
+    return s3_key, presigned_url
 
 
 # ─────────────────────────────────────────
@@ -298,17 +342,31 @@ def generate_dataset(req: GenerateRequest):
     job_id = result["job_id"]
     generated_at = result["generated_at"]
 
+    # ── Upload to S3 ──────────────────────────────────────────────
+    s3_key = None
+    s3_url = None
+    try:
+        s3_key, s3_url = _upload_to_s3(file_path, req.dataset_name)
+        # Clean up local file after successful S3 upload
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            logger.info(f"Deleted local file after S3 upload: {file_path}")
+    except Exception as e:
+        logger.warning(f"S3 upload failed, keeping local file: {e}")
+
     response = GenerateResponse(
         job_id=job_id,
         dataset_name=result["dataset_name"],
         rows_generated=result["rows_generated"],
         columns=result["columns"],
-        file_path=file_path,
+        file_path=s3_key or file_path,
+        s3_key=s3_key,
+        s3_url=s3_url,
         format=req.format,
         generated_at=generated_at
     )
 
-    logger.info(f"Generation complete: {file_path}")
+    logger.info(f"Generation complete: s3://{settings.s3_bucket}/{s3_key}")
     return response
 
 
@@ -325,11 +383,13 @@ def get_history():
 @app.get("/download/{job_id}", tags=["Generation"])
 def download_file(job_id: str):
     """
-    Download the generated dataset file by job_id.
+    Get a presigned S3 download URL for a generated dataset.
 
-    Frontend calls this after POST /generate to let the user download the file.
-    Returns the file as a browser-downloadable attachment.
+    Frontend redirects the user to the returned `download_url` to trigger
+    the browser download directly from S3.
     """
+    import boto3
+
     job = None
     try:
         job = db.get_job(job_id)
@@ -340,29 +400,32 @@ def download_file(job_id: str):
     if not job:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
 
-    file_path = job["file_path"]
+    # Prefer s3_key stored in DynamoDB
+    s3_key = job.get("s3_key") or job.get("file_path")
 
-    # Resolve relative path from backend directory
-    if not os.path.isabs(file_path):
-        backend_dir = os.path.dirname(os.path.abspath(__file__ + "/.."))
-        file_path = os.path.normpath(os.path.join(backend_dir, file_path.lstrip("./")))
+    if not s3_key or not s3_key.startswith("datasets/"):
+        raise HTTPException(
+            status_code=404,
+            detail=f"No S3 file found for job '{job_id}'. Legacy local-only jobs cannot be downloaded."
+        )
 
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+    try:
+        s3 = boto3.client("s3", region_name=settings.aws_region)
+        presigned_url = s3.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": settings.s3_bucket, "Key": s3_key},
+            ExpiresIn=3600
+        )
+    except Exception as e:
+        logger.error(f"Failed to generate presigned URL: {e}")
+        raise HTTPException(status_code=500, detail=f"Could not generate download URL: {e}")
 
-    fmt = job.get("format", "csv")
-    media_types = {
-        "csv":     "text/csv",
-        "json":    "application/json",
-        "parquet": "application/octet-stream",
-        "tsv":     "text/tab-separated-values"
+    return {
+        "job_id": job_id,
+        "download_url": presigned_url,
+        "s3_key": s3_key,
+        "expires_in_seconds": 3600
     }
-
-    return FileResponse(
-        path=file_path,
-        filename=os.path.basename(file_path),
-        media_type=media_types.get(fmt, "application/octet-stream")
-    )
 
 
 @app.post("/schema/upload", tags=["Schema"])

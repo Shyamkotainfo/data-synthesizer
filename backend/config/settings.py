@@ -55,6 +55,12 @@ class Settings(BaseSettings):
         env="DYNAMO_HISTORY_TABLE"
     )
 
+    # -------------------- S3 --------------------
+    s3_bucket: str = Field(
+        default="data-synthesizer-output",
+        env="S3_BUCKET"
+    )
+
     # -------------------- Validators --------------------
 
     @field_validator("environment")
