@@ -1,0 +1,203 @@
+name: Deploy Data Synthesizer Backend
+
+on:
+  push:
+    branches:
+      - dev
+      - staging
+      - prod
+    paths:
+      - 'backend/**'
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPO: data-synthesizer-backend
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ---------------------------
+      # Checkout repository
+      # ---------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ---------------------------
+      # Set branch-specific variables
+      # ---------------------------
+      - name: Set environment variables
+        run: |
+          BRANCH_NAME=${GITHUB_REF##*/}
+          echo "IMAGE_TAG=$BRANCH_NAME" >> $GITHUB_ENV
+          echo "SERVICE_NAME=data-synthesizer-$BRANCH_NAME" >> $GITHUB_ENV
+          echo "Deploying branch: $BRANCH_NAME"
+
+      # ---------------------------
+      # Configure AWS credentials
+      # ---------------------------
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # ---------------------------
+      # Get AWS Account ID
+      # ---------------------------
+      - name: Get AWS Account ID
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "ACCOUNT_ID=$ACCOUNT_ID" >> $GITHUB_ENV
+          echo "ECR_REGISTRY=$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com" >> $GITHUB_ENV
+
+      # ---------------------------
+      # Login to Amazon ECR
+      # ---------------------------
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ---------------------------
+      # Ensure ECR Repository Exists
+      # ---------------------------
+      - name: Create ECR repository if not exists
+        run: |
+          aws ecr describe-repositories --repository-names $ECR_REPO \
+            --region $AWS_REGION 2>/dev/null || \
+          aws ecr create-repository \
+            --repository-name $ECR_REPO \
+            --region $AWS_REGION \
+            --image-scanning-configuration scanOnPush=true
+
+      # ---------------------------
+      # Set up Docker Buildx (AMD64 for App Runner)
+      # ---------------------------
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ---------------------------
+      # Build and Push Docker Image
+      # ---------------------------
+      - name: Build and push Docker image
+        run: |
+          IMAGE_URI=$ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+
+          docker buildx build \
+            --platform linux/amd64 \
+            --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+            --build-arg GIT_SHA=${{ github.sha }} \
+            -t $IMAGE_URI \
+            --push \
+            ./backend
+
+      # ---------------------------
+      # Ensure App Runner ECR IAM Role Exists
+      # ---------------------------
+      - name: Ensure AppRunner ECR access role exists
+        run: |
+          ROLE_NAME="AppRunnerECRAccessRole"
+
+          # Check if the role already exists
+          ROLE_ARN=$(aws iam get-role --role-name $ROLE_NAME \
+            --query "Role.Arn" --output text 2>/dev/null || echo "MISSING")
+          
+          if [ "$ROLE_ARN" == "MISSING" ]; then
+            echo "Creating IAM role $ROLE_NAME..."
+            
+            # Create the trust policy
+            TRUST_POLICY='{
+              "Version": "2012-10-17",
+              "Statement": [{
+                "Effect": "Allow",
+                "Principal": {"Service": "build.apprunner.amazonaws.com"},
+                "Action": "sts:AssumeRole"
+              }]
+            }'
+            
+            ROLE_ARN=$(aws iam create-role \
+              --role-name $ROLE_NAME \
+              --assume-role-policy-document "$TRUST_POLICY" \
+              --query "Role.Arn" --output text)
+            
+            # Attach ECR read-only policy
+            aws iam attach-role-policy \
+              --role-name $ROLE_NAME \
+              --policy-arn arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+            
+            echo "Created role: $ROLE_ARN"
+          else
+            echo "Role already exists: $ROLE_ARN"
+          fi
+          
+          echo "APPRUNNER_ECR_ROLE_ARN=$ROLE_ARN" >> $GITHUB_ENV
+
+      # ---------------------------
+      # Create App Runner Service (if it doesn't exist)
+      # or Trigger Deployment (if it does)
+      # ---------------------------
+      - name: Deploy to App Runner
+        run: |
+          IMAGE_URI=$ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG
+          
+          # Check if the service exists
+          SERVICE_ARN=$(aws apprunner list-services \
+            --query "ServiceSummaryList[?ServiceName=='$SERVICE_NAME'].ServiceArn | [0]" \
+            --output text 2>/dev/null)
+
+          if [ "$SERVICE_ARN" == "None" ] || [ -z "$SERVICE_ARN" ]; then
+            echo "Service $SERVICE_NAME not found. Creating a new App Runner service..."
+            
+            SERVICE_ARN=$(aws apprunner create-service \
+              --service-name $SERVICE_NAME \
+              --source-configuration "{
+                \"ImageRepository\": {
+                  \"ImageIdentifier\": \"$IMAGE_URI\",
+                  \"ImageConfiguration\": {
+                    \"Port\": \"8080\",
+                    \"RuntimeEnvironmentVariables\": {
+                      \"ENVIRONMENT\": \"$IMAGE_TAG\",
+                      \"AWS_REGION\": \"$AWS_REGION\"
+                    }
+                  },
+                  \"ImageRepositoryType\": \"ECR\"
+                },
+                \"AutoDeploymentsEnabled\": false,
+                \"AuthenticationConfiguration\": {
+                  \"AccessRoleArn\": \"${{ secrets.APPRUNNER_ECR_ROLE_ARN }}\"
+                }
+              }" \
+              --instance-configuration "{
+                \"Cpu\": \"1 vCPU\",
+                \"Memory\": \"2 GB\"
+              }" \
+              --health-check-configuration "{
+                \"Protocol\": \"HTTP\",
+                \"Path\": \"/health\",
+                \"Interval\": 10,
+                \"Timeout\": 5,
+                \"HealthyThreshold\": 1,
+                \"UnhealthyThreshold\": 5
+              }" \
+              --query "Service.ServiceArn" \
+              --output text)
+            
+            echo "Created new App Runner service: $SERVICE_ARN"
+          else
+            echo "Service $SERVICE_NAME found. Triggering deployment..."
+            aws apprunner start-deployment --service-arn $SERVICE_ARN
+            echo "Deployment triggered for $SERVICE_NAME ($SERVICE_ARN)"
+          fi
+
+      # ---------------------------
+      # Print the App Runner URL
+      # ---------------------------
+      - name: Print Service URL
+        run: |
+          SERVICE_URL=$(aws apprunner list-services \
+            --query "ServiceSummaryList[?ServiceName=='$SERVICE_NAME'].ServiceUrl | [0]" \
+            --output text)
+          echo "✅ App Runner Service URL: https://$SERVICE_URL"
+          echo "SERVICE_URL=https://$SERVICE_URL" >> $GITHUB_ENV
