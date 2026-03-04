@@ -199,9 +199,27 @@ jobs:
             
             echo "Created new App Runner service: $SERVICE_ARN"
           else
-            echo "Service $SERVICE_NAME found. Triggering deployment..."
-            aws apprunner start-deployment --service-arn $SERVICE_ARN
-            echo "Deployment triggered for $SERVICE_NAME ($SERVICE_ARN)"
+            echo "Service $SERVICE_NAME found. Updating image and triggering deployment..."
+            aws apprunner update-service \
+              --service-arn $SERVICE_ARN \
+              --source-configuration "{
+                \"ImageRepository\": {
+                  \"ImageIdentifier\": \"$IMAGE_URI\",
+                  \"ImageConfiguration\": {
+                    \"Port\": \"8080\",
+                    \"RuntimeEnvironmentVariables\": {
+                      \"ENVIRONMENT\": \"$ENV_NAME\",
+                      \"AWS_REGION\": \"$AWS_REGION\"
+                    }
+                  },
+                  \"ImageRepositoryType\": \"ECR\"
+                },
+                \"AutoDeploymentsEnabled\": false,
+                \"AuthenticationConfiguration\": {
+                  \"AccessRoleArn\": \"$APPRUNNER_ECR_ROLE_ARN\"
+                }
+              }"
+            echo "Update triggered for $SERVICE_NAME ($SERVICE_ARN)"
           fi
 
       # ---------------------------
