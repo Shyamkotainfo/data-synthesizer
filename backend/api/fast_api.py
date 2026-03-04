@@ -502,3 +502,4 @@ def get_supported_types():
         "distributions": ["uniform", "normal", "skewed", "random"],
         "formats": ["csv", "json", "parquet", "tsv"]
     }
+
