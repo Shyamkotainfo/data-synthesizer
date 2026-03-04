@@ -47,6 +47,7 @@ class DynamoHistory:
         Save a generation job to DynamoDB.
         job must contain: job_id, dataset_name, rows, format,
                           columns, file_path, generated_at, status
+        Optional: s3_key
         """
         item = {
             "job_id":       job["job_id"],
@@ -60,6 +61,10 @@ class DynamoHistory:
             # Optional TTL — keeps table clean; 90 days from now
             "ttl":          int(time.time()) + 90 * 24 * 3600
         }
+        # Store s3_key if provided (needed for presigned download URLs)
+        if job.get("s3_key"):
+            item["s3_key"] = job["s3_key"]
+
         try:
             self.table.put_item(Item=item)
             logger.info(f"Saved job {job['job_id']} to DynamoDB table '{self.table_name}'")

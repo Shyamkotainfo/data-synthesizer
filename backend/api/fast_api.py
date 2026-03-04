@@ -331,9 +331,8 @@ def generate_dataset(req: GenerateRequest):
     # If TSV, rename file extension
     file_path = result["file_path"]
     if req.format == "tsv":
-        tsv_path = file_path.replace(".csv", ".tsv")
         import pandas as pd
-        import os
+        tsv_path = file_path.replace(".csv", ".tsv")
         df = pd.read_csv(file_path)
         df.to_csv(tsv_path, index=False, sep="\t")
         os.remove(file_path)
@@ -353,6 +352,22 @@ def generate_dataset(req: GenerateRequest):
             logger.info(f"Deleted local file after S3 upload: {file_path}")
     except Exception as e:
         logger.warning(f"S3 upload failed, keeping local file: {e}")
+
+    # ── Save to DynamoDB with s3_key ──────────────────────────────
+    try:
+        db.save_job({
+            "job_id":       job_id,
+            "dataset_name": result["dataset_name"],
+            "rows":         result["rows_generated"],
+            "format":       req.format,
+            "columns":      result["columns"],
+            "file_path":    s3_key or file_path,
+            "s3_key":       s3_key,
+            "generated_at": generated_at,
+            "status":       "success"
+        })
+    except Exception as e:
+        logger.warning(f"Failed to save job to DynamoDB: {e}")
 
     response = GenerateResponse(
         job_id=job_id,
