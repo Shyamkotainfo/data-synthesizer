@@ -166,7 +166,7 @@ jobs:
                 },
                 \"AutoDeploymentsEnabled\": false,
                 \"AuthenticationConfiguration\": {
-                  \"AccessRoleArn\": \"${{ secrets.APPRUNNER_ECR_ROLE_ARN }}\"
+                  \"AccessRoleArn\": \"$APPRUNNER_ECR_ROLE_ARN\"
                 }
               }" \
               --instance-configuration "{
