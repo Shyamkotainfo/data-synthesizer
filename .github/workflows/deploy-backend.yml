@@ -87,11 +87,12 @@ jobs:
 
           docker buildx build \
             --platform linux/amd64 \
+            --file ./backend/Dockerfile \
             --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
             --build-arg GIT_SHA=${{ github.sha }} \
             -t $IMAGE_URI \
             --push \
-            ./backend
+            .
 
       # ---------------------------
       # Ensure App Runner ECR IAM Role Exists
