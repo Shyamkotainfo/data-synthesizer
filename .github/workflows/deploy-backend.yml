@@ -33,6 +33,18 @@ jobs:
           BRANCH_NAME=${GITHUB_REF##*/}
           echo "IMAGE_TAG=$BRANCH_NAME" >> $GITHUB_ENV
           echo "SERVICE_NAME=data-synthesizer-$BRANCH_NAME" >> $GITHUB_ENV
+
+          # Map branch name -> valid ENVIRONMENT value for pydantic settings
+          if [ "$BRANCH_NAME" == "dev" ]; then
+            echo "ENV_NAME=development" >> $GITHUB_ENV
+          elif [ "$BRANCH_NAME" == "staging" ]; then
+            echo "ENV_NAME=staging" >> $GITHUB_ENV
+          elif [ "$BRANCH_NAME" == "prod" ]; then
+            echo "ENV_NAME=production" >> $GITHUB_ENV
+          else
+            echo "ENV_NAME=development" >> $GITHUB_ENV
+          fi
+
           echo "Deploying branch: $BRANCH_NAME"
 
       # ---------------------------
@@ -159,7 +171,7 @@ jobs:
                   \"ImageConfiguration\": {
                     \"Port\": \"8080\",
                     \"RuntimeEnvironmentVariables\": {
-                      \"ENVIRONMENT\": \"$IMAGE_TAG\",
+                      \"ENVIRONMENT\": \"$ENV_NAME\",
                       \"AWS_REGION\": \"$AWS_REGION\"
                     }
                   },
