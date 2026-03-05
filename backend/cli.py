@@ -58,6 +58,27 @@ def main():
                 raw_request = collect_generation_input()
                 request = input_processor.build_request(raw_request)
 
+                # Fill in smart defaults for description / ai_criteria if blank
+                if not request.get("description"):
+                    schema = request.get("schema") or []
+                    col_names = [c.get("name", "") for c in schema]
+                    col_summary = ", ".join(col_names[:6])
+                    if len(col_names) > 6:
+                        col_summary += f" and {len(col_names) - 6} more"
+                    readable = request.get("dataset_name", "dataset").replace("_", " ").replace("-", " ").title()
+                    request["description"] = (
+                        f"Realistic synthetic {readable} dataset"
+                        + (f" containing fields: {col_summary}." if col_summary else ".")
+                    )
+
+                if not request.get("ai_criteria"):
+                    request["ai_criteria"] = (
+                        "Generate realistic, diverse, and internally consistent data. "
+                        "Values must reflect real-world distributions and relationships between columns. "
+                        "Avoid repetitive patterns, placeholder text, or sequential values. "
+                        "Ensure all fields have appropriate formats and plausible value ranges."
+                    )
+
                 # STEP 1: Show preview, ask for confirmation
                 confirmed = show_preview(request)
                 if not confirmed:

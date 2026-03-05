@@ -212,6 +212,37 @@ def _upload_to_s3(file_path: str, dataset_name: str) -> tuple[str, str]:
 
 
 # ─────────────────────────────────────────
+# Helper: Smart defaults for description / ai_criteria
+# ─────────────────────────────────────────
+
+def _build_defaults(dataset_name: str, columns: list | None) -> tuple[str, str]:
+    """
+    Generate a generic description and ai_criteria from the dataset name and columns
+    when the user doesn't provide them. Works for any dataset.
+    """
+    readable = dataset_name.replace("_", " ").replace("-", " ").strip().title()
+
+    col_names = [c["name"] if isinstance(c, dict) else str(c) for c in (columns or [])]
+    col_summary = ", ".join(col_names[:6])
+    if len(col_names) > 6:
+        col_summary += f" and {len(col_names) - 6} more"
+
+    description = (
+        f"Realistic synthetic {readable} dataset"
+        + (f" containing fields: {col_summary}." if col_summary else ".")
+    )
+
+    ai_criteria = (
+        "Generate realistic, diverse, and internally consistent data. "
+        "Values must reflect real-world distributions and relationships between columns. "
+        "Avoid repetitive patterns, placeholder text, or sequential values. "
+        "Ensure all fields have appropriate formats and plausible value ranges."
+    )
+
+    return description, ai_criteria
+
+
+# ─────────────────────────────────────────
 # Endpoints
 # ─────────────────────────────────────────
 
@@ -264,12 +295,17 @@ def analyze_dataset(req: GenerateRequest):
         from prompt.dataset_prompt import _detect_primary_key
         detected_pk = _detect_primary_key(request["schema"])
 
+    # Fill in smart defaults if user didn't provide description / ai_criteria
+    _desc, _criteria = _build_defaults(req.dataset_name, request.get("schema"))
+    effective_description = request.get("description") or _desc
+    effective_criteria    = request.get("ai_criteria")  or _criteria
+
     prompt = DatasetPromptBuilder.build(
         dataset_name=request["dataset_name"],
         rows=request["rows"],
-        description=request.get("description"),
+        description=effective_description,
         schema=request.get("schema"),
-        ai_criteria=request.get("ai_criteria"),
+        ai_criteria=effective_criteria,
         primary_key=detected_pk
     )
 
@@ -299,13 +335,17 @@ def generate_dataset(req: GenerateRequest):
 
     logger.info(f"Received generate request: {req.dataset_name} | {req.rows} rows | {req.format}")
 
-    # Build internal request dict
+    # Build internal request dict — fill in smart defaults if not provided
+    _desc, _criteria = _build_defaults(
+        req.dataset_name,
+        [col.model_dump(exclude_none=True) for col in req.columns] if req.columns else None
+    )
     raw_input = {
         "dataset_name": req.dataset_name,
         "rows": str(req.rows),
         "format": req.format,
-        "description": req.description,
-        "ai_criteria": req.ai_criteria,
+        "description": req.description or _desc,
+        "ai_criteria": req.ai_criteria or _criteria,
         "target_location": req.target_location,
         "schema": [col.model_dump(exclude_none=True) for col in req.columns] if req.columns else None,
         "primary_key": req.primary_key,
