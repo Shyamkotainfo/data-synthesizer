@@ -487,111 +487,36 @@ def download_file(job_id: str):
 @app.post("/schema/upload", tags=["Schema"])
 async def upload_schema_file(file: UploadFile = File(...)):
     """
-    Upload a schema file and get back columns + sample rows.
+    Upload a data file and get back the inferred schema + sample rows.
 
-    Supported formats:
-      - .json  → reads columns array directly
-      - .csv   → auto-infers schema from column names/types + extracts 5 sample rows
+    Supported formats: .csv, .json, .parquet
 
     Returns:
       {
         filename, file_type, columns_count,
+        total_rows_in_file,
         columns: [...],       ← pass this to POST /generate as 'columns'
-        sample_rows: [...]    ← optional, only for CSV uploads
+        sample_rows: [...]    ← 5 sample rows for LLM context
       }
     """
-    import io
-    import pandas as pd
+    from core.schema_extractor import extract_from_bytes
 
     filename = file.filename or ""
     contents = await file.read()
 
-    # ─── JSON Schema File ───────────────────────────────────────
-    if filename.endswith(".json"):
-        try:
-            schema = json.loads(contents.decode("utf-8"))
-        except json.JSONDecodeError as e:
-            raise HTTPException(400, detail=f"Invalid JSON: {e}")
+    try:
+        result = extract_from_bytes(filename, contents, max_samples=5)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-        if not isinstance(schema, list):
-            raise HTTPException(400, detail="JSON schema must be an array of column objects")
-
-        for i, col in enumerate(schema):
-            if not isinstance(col, dict) or "name" not in col:
-                raise HTTPException(400, detail=f"Column {i} must be an object with a 'name' field")
-
-        return {
-            "filename": filename,
-            "file_type": "json",
-            "columns_count": len(schema),
-            "columns": schema,
-            "sample_rows": None
-        }
-
-    # ─── CSV File → Extract Schema + Sample Rows ────────────────
-    elif filename.endswith(".csv"):
-        try:
-            df = pd.read_csv(io.BytesIO(contents))
-        except Exception as e:
-            raise HTTPException(400, detail=f"Could not read CSV: {e}")
-
-        if df.empty:
-            raise HTTPException(400, detail="CSV file is empty")
-
-        # Dtype → column type mapping
-        dtype_map = {
-            "object":          "string",
-            "int64":           "integer",
-            "int32":           "integer",
-            "float64":         "float",
-            "float32":         "float",
-            "bool":            "boolean",
-            "datetime64[ns]":  "datetime",
-        }
-
-        columns = []
-        for col_name, dtype in df.dtypes.items():
-            col_type = dtype_map.get(str(dtype), "string")
-
-            # Detect email-like columns by name
-            name_lower = col_name.lower()
-            if "email" in name_lower:
-                col_type = "email"
-            elif "phone" in name_lower or "mobile" in name_lower:
-                col_type = "phone"
-            elif "date" in name_lower or "time" in name_lower:
-                col_type = "date"
-            elif "uuid" in name_lower or "id" == name_lower:
-                col_type = "uuid"
-            elif "url" in name_lower or "link" in name_lower:
-                col_type = "url"
-
-            # Detect nullable: if any value is null in CSV
-            has_nulls = df[col_name].isnull().any()
-
-            columns.append({
-                "name": col_name,
-                "type": col_type,
-                "nullable": bool(has_nulls)
-            })
-
-        # Extract up to 5 sample rows
-        sample_rows = df.head(5).fillna("").to_dict(orient="records")
-
-        return {
-            "filename": filename,
-            "file_type": "csv",
-            "total_rows_in_file": len(df),
-            "columns_count": len(columns),
-            "columns": columns,
-            "sample_rows": sample_rows
-        }
-
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file type '{filename}'. Upload a .json or .csv file."
-        )
+    return {
+        "filename":          filename,
+        "file_type":         result["file_type"],
+        "total_rows_in_file": result.get("total_rows", 0),
+        "columns_count":      result["columns_count"],
+        "columns":            result["columns"],
+        "sample_rows":        result["sample_rows"],
+    }
 
 
 @app.get("/schema/sample", tags=["Schema"])
