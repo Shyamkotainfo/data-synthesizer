@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       # ---------------------------
       # Checkout repository
       # ---------------------------
@@ -26,15 +27,14 @@ jobs:
         uses: actions/checkout@v4
 
       # ---------------------------
-      # Set branch-specific variables
+      # Set IMAGE_TAG based on branch
       # ---------------------------
-      - name: Set environment variables
+      - name: Set image tag
         run: |
           BRANCH_NAME=${GITHUB_REF##*/}
           echo "IMAGE_TAG=$BRANCH_NAME" >> $GITHUB_ENV
           echo "SERVICE_NAME=data-synthesizer-$BRANCH_NAME" >> $GITHUB_ENV
 
-          # Map branch name -> valid ENVIRONMENT value for pydantic settings
           if [ "$BRANCH_NAME" == "dev" ]; then
             echo "ENV_NAME=development" >> $GITHUB_ENV
           elif [ "$BRANCH_NAME" == "staging" ]; then
@@ -60,11 +60,10 @@ jobs:
       # ---------------------------
       # Get AWS Account ID
       # ---------------------------
-      - name: Get AWS Account ID
+      - name: Get AWS account ID
         run: |
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           echo "ACCOUNT_ID=$ACCOUNT_ID" >> $GITHUB_ENV
-          echo "ECR_REGISTRY=$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com" >> $GITHUB_ENV
 
       # ---------------------------
       # Login to Amazon ECR
@@ -91,203 +90,37 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       # ---------------------------
-      # Build and Push Docker Image
+      # Build and Push Docker Image (AMD64)
       # ---------------------------
       - name: Build and push Docker image
         run: |
-          IMAGE_URI=$ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG
+          IMAGE_URI=$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
           docker buildx build \
             --platform linux/amd64 \
-            --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
-            --build-arg GIT_SHA=${{ github.sha }} \
             -t $IMAGE_URI \
             --push \
             ./backend
 
       # ---------------------------
-      # Ensure App Runner ECR IAM Role Exists
-      # ---------------------------
-      - name: Ensure AppRunner ECR access role exists
-        run: |
-          ROLE_NAME="AppRunnerECRAccessRole"
-
-          # Check if the role already exists
-          ROLE_ARN=$(aws iam get-role --role-name $ROLE_NAME \
-            --query "Role.Arn" --output text 2>/dev/null || echo "MISSING")
-          
-          if [ "$ROLE_ARN" == "MISSING" ]; then
-            echo "Creating IAM role $ROLE_NAME..."
-            
-            # Create the trust policy
-            TRUST_POLICY='{
-              "Version": "2012-10-17",
-              "Statement": [{
-                "Effect": "Allow",
-                "Principal": {"Service": "build.apprunner.amazonaws.com"},
-                "Action": "sts:AssumeRole"
-              }]
-            }'
-            
-            ROLE_ARN=$(aws iam create-role \
-              --role-name $ROLE_NAME \
-              --assume-role-policy-document "$TRUST_POLICY" \
-              --query "Role.Arn" --output text)
-            
-            # Attach ECR read-only policy
-            aws iam attach-role-policy \
-              --role-name $ROLE_NAME \
-              --policy-arn arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
-            
-            echo "Created role: $ROLE_ARN"
-          else
-            echo "Role already exists: $ROLE_ARN"
-          fi
-          
-          echo "APPRUNNER_ECR_ROLE_ARN=$ROLE_ARN" >> $GITHUB_ENV
-
-      # ---------------------------
-      # Ensure App Runner Instance Role Exists (Bedrock + S3 + DynamoDB)
-      # ---------------------------
-      - name: Ensure AppRunner instance role exists
-        run: |
-          ROLE_NAME="AppRunnerInstanceRole"
-
-          INSTANCE_ROLE_ARN=$(aws iam get-role --role-name $ROLE_NAME \
-            --query "Role.Arn" --output text 2>/dev/null || echo "MISSING")
-
-          if [ "$INSTANCE_ROLE_ARN" == "MISSING" ]; then
-            echo "Creating IAM instance role $ROLE_NAME..."
-
-            TRUST_POLICY='{
-              "Version": "2012-10-17",
-              "Statement": [{
-                "Effect": "Allow",
-                "Principal": {"Service": "tasks.apprunner.amazonaws.com"},
-                "Action": "sts:AssumeRole"
-              }]
-            }'
-
-            INSTANCE_ROLE_ARN=$(aws iam create-role \
-              --role-name $ROLE_NAME \
-              --assume-role-policy-document "$TRUST_POLICY" \
-              --query "Role.Arn" --output text)
-
-            # Inline policy: Bedrock + S3 + DynamoDB + CloudWatch Logs
-            POLICY='{
-              "Version": "2012-10-17",
-              "Statement": [
-                {
-                  "Effect": "Allow",
-                  "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
-                  "Resource": "*"
-                },
-                {
-                  "Effect": "Allow",
-                  "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject",
-                              "s3:CreateBucket", "s3:HeadBucket", "s3:ListBucket"],
-                  "Resource": "*"
-                },
-                {
-                  "Effect": "Allow",
-                  "Action": ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:Scan",
-                              "dynamodb:UpdateItem", "dynamodb:DeleteItem",
-                              "dynamodb:CreateTable", "dynamodb:DescribeTable"],
-                  "Resource": "*"
-                },
-                {
-                  "Effect": "Allow",
-                  "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
-                  "Resource": "*"
-                }
-              ]
-            }'
-
-            aws iam put-role-policy \
-              --role-name $ROLE_NAME \
-              --policy-name DataSynthesizerPolicy \
-              --policy-document "$POLICY"
-
-            echo "Created instance role: $INSTANCE_ROLE_ARN"
-            # Wait for role to propagate
-            sleep 10
-          else
-            echo "Instance role already exists: $INSTANCE_ROLE_ARN"
-          fi
-
-          echo "APPRUNNER_INSTANCE_ROLE_ARN=$INSTANCE_ROLE_ARN" >> $GITHUB_ENV
-
-      # ---------------------------
-      # Create App Runner Service (if it doesn't exist)
-      # or Trigger Deployment (if it does)
+      # Trigger App Runner Deployment
       # ---------------------------
       - name: Deploy to App Runner
         run: |
-          IMAGE_URI=$ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG
-          
-          # Check if the service exists
           SERVICE_ARN=$(aws apprunner list-services \
             --query "ServiceSummaryList[?ServiceName=='$SERVICE_NAME'].ServiceArn | [0]" \
-            --output text 2>/dev/null)
+            --output text)
 
-          if [ "$SERVICE_ARN" == "None" ] || [ -z "$SERVICE_ARN" ]; then
-            echo "Service $SERVICE_NAME not found. Creating a new App Runner service..."
-            
-            SERVICE_ARN=$(aws apprunner create-service \
-              --service-name $SERVICE_NAME \
-              --source-configuration "{
-                \"ImageRepository\": {
-                  \"ImageIdentifier\": \"$IMAGE_URI\",
-                  \"ImageConfiguration\": {
-                    \"Port\": \"8080\",
-                    \"RuntimeEnvironmentVariables\": {
-                      \"ENVIRONMENT\": \"$ENV_NAME\",
-                      \"AWS_REGION\": \"$AWS_REGION\"
-                    }
-                  },
-                  \"ImageRepositoryType\": \"ECR\"
-                },
-                \"AutoDeploymentsEnabled\": false,
-                \"AuthenticationConfiguration\": {
-                  \"AccessRoleArn\": \"$APPRUNNER_ECR_ROLE_ARN\"
-                }
-              }" \
-              --instance-configuration "{
-                \"Cpu\": \"1 vCPU\",
-                \"Memory\": \"2 GB\",
-                \"InstanceRoleArn\": \"'$APPRUNNER_INSTANCE_ROLE_ARN'\"
-              }" \
-              --health-check-configuration "{
-                \"Protocol\": \"HTTP\",
-                \"Path\": \"/health\",
-                \"Interval\": 10,
-                \"Timeout\": 5,
-                \"HealthyThreshold\": 1,
-                \"UnhealthyThreshold\": 5
-              }" \
-              --query "Service.ServiceArn" \
-              --output text)
-            
-            echo "Created new App Runner service: $SERVICE_ARN"
+          if [ "$SERVICE_ARN" != "None" ] && [ -n "$SERVICE_ARN" ]; then
+            echo "Triggering deployment for $SERVICE_NAME"
+            aws apprunner start-deployment --service-arn $SERVICE_ARN
+            echo "✅ Deployment started for: $SERVICE_ARN"
           else
-            echo "Service $SERVICE_NAME found. Updating image and triggering deployment..."
-            aws apprunner update-service \
-              --service-arn $SERVICE_ARN \
-              --source-configuration "{
-                \"ImageRepository\": {
-                  \"ImageIdentifier\": \"$IMAGE_URI\",
-                  \"ImageConfiguration\": {
-                    \"Port\": \"8080\"
-                  },
-                  \"ImageRepositoryType\": \"ECR\"
-                },
-                \"AutoDeploymentsEnabled\": false,
-                \"AuthenticationConfiguration\": {
-                  \"AccessRoleArn\": \"$APPRUNNER_ECR_ROLE_ARN\"
-                }
-              }"
-            echo "Update triggered for $SERVICE_NAME ($SERVICE_ARN)"
+            echo "⚠️ App Runner service '$SERVICE_NAME' not found."
+            echo "Please create it manually in the AWS Console using the image:"
+            echo "  $IMAGE_URI"
+            exit 1
           fi
 
       # ---------------------------
@@ -299,4 +132,3 @@ jobs:
             --query "ServiceSummaryList[?ServiceName=='$SERVICE_NAME'].ServiceUrl | [0]" \
             --output text)
           echo "✅ App Runner Service URL: https://$SERVICE_URL"
-          echo "SERVICE_URL=https://$SERVICE_URL" >> $GITHUB_ENV
