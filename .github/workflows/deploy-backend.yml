@@ -287,7 +287,23 @@ jobs:
                   \"AccessRoleArn\": \"$APPRUNNER_ECR_ROLE_ARN\"
                 }
               }"
-            echo "Update triggered for $SERVICE_NAME ($SERVICE_ARN)"
+
+            # Wait for service to reach RUNNING state before triggering deployment
+            echo "Waiting for service to reach RUNNING state..."
+            for i in $(seq 1 18); do
+              STATUS=$(aws apprunner describe-service \
+                --service-arn $SERVICE_ARN \
+                --query "Service.Status" --output text)
+              echo "  Status: $STATUS"
+              if [ "$STATUS" == "RUNNING" ]; then
+                break
+              fi
+              sleep 10
+            done
+
+            echo "Triggering explicit deployment..."
+            aws apprunner start-deployment --service-arn $SERVICE_ARN
+            echo "✅ Deployment started for $SERVICE_NAME"
           fi
 
       # ---------------------------
