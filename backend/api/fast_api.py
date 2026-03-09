@@ -352,6 +352,7 @@ def generate_dataset(req: GenerateRequest):
         "schema_file": None,
         "sample_rows": req.sample_rows,
         "sample_file": None,
+        "skip_db_save": True,   # API saves to DynamoDB with s3_key after upload
     }
 
     processor = InputProcessor()
