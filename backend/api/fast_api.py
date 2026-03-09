@@ -142,6 +142,7 @@ class HistoryItem(BaseModel):
     format: str
     columns: List[str]
     file_path: str
+    s3_key: Optional[str] = None   # S3 object key for download
     generated_at: str
     status: str
 

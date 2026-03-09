@@ -111,9 +111,9 @@ class DynamoHistory:
                 # Remove internal TTL from API response
                 item.pop("ttl", None)
 
-            # Sort newest first
+            # Sort newest first, return only latest 10
             items.sort(key=lambda x: x.get("generated_at", ""), reverse=True)
-            return items
+            return items[:10]
 
         except ClientError as e:
             logger.error(f"DynamoDB scan failed: {e}")
