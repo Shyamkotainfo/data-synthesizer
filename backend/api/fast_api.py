@@ -95,7 +95,7 @@ class GenerateRequest(BaseModel):
     rows: int = Field(..., gt=0, le=10_000_000, example=10)
     format: str = Field(default="csv", pattern="^(csv|json|parquet|tsv)$")
     description: Optional[str] = Field(default=None, example="User profile dataset for testing")
-    ai_criteria: Optional[str] = Field(default=None, example="Generate realistic US-based users aged 18-65")
+    ai_criteria: Optional[str] = Field(default=None, example=None, description="Optional quality instructions for the LLM. Auto-generated from dataset name + columns if not provided.")
     target_location: Optional[str] = Field(default=None, example=None)
     columns: Optional[List[SchemaColumn]] = None
     primary_key: Optional[str] = Field(default=None, example="user_id", description="Explicitly set the primary key column for generation")
@@ -104,21 +104,20 @@ class GenerateRequest(BaseModel):
     model_config = {
         "json_schema_extra": {
             "example": {
-                "dataset_name": "users_dataset",
-                "rows": 10,
+                "dataset_name": "police_stops",
+                "rows": 100,
                 "format": "csv",
-                "description": "User profile dataset for testing",
-                "ai_criteria": "Generate realistic US-based users aged 18-65",
-                "target_location": None,
+                "description": None,
+                "ai_criteria": None,
                 "columns": [
-                    {"name": "user_id",    "type": "uuid",    "nullable": False},
-                    {"name": "full_name",  "type": "name",    "nullable": False},
-                    {"name": "email",      "type": "email",   "nullable": False},
-                    {"name": "age",        "type": "integer", "nullable": False, "pattern": "18-65"},
-                    {"name": "city",       "type": "string",  "nullable": True},
-                    {"name": "is_active",  "type": "boolean", "nullable": False}
+                    {"name": "stop_date",   "type": "date",    "nullable": False},
+                    {"name": "driver_gender","type": "string",  "nullable": True},
+                    {"name": "driver_age",   "type": "integer", "nullable": True},
+                    {"name": "violation",    "type": "string",  "nullable": True},
+                    {"name": "stop_outcome", "type": "string",  "nullable": True}
                 ],
-                "primary_key": "user_id"
+                "primary_key": "stop_date",
+                "sample_rows": None
             }
         }
     }
