@@ -58,6 +58,7 @@ class DataSynthesizer:
         output_format = request.get("format")
         target_location = request.get("target_location")
         primary_key = request.get("primary_key")  # confirmed PK column name
+        skip_db_save = request.get("skip_db_save", False)  # API sets this to True
 
         # -----------------------------
         # STEP 2: Validate Mandatory
@@ -163,7 +164,8 @@ class DataSynthesizer:
             "status":       "success"
         }
         try:
-            self._db.save_job(job_record)
+            if not skip_db_save:
+                self._db.save_job(job_record)
         except Exception as e:
             self.logger.warning(f"DynamoDB save failed (non-fatal): {e}")
 

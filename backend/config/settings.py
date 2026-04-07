@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     """Application settings with validation"""
 
     # -------------------- Environment --------------------
-    environment: str = Field(default="development", env="ENVIRONMENT")
+    environment: str = Field(default="dev", env="ENVIRONMENT")
     debug: bool = Field(default=False, env="DEBUG")
 
     # -------------------- App Server --------------------
@@ -55,10 +55,19 @@ class Settings(BaseSettings):
         env="DYNAMO_HISTORY_TABLE"
     )
 
+    # -------------------- S3 --------------------
+    s3_bucket: str = Field(
+        default="data-synthesizer-output",
+        env="S3_BUCKET"
+    )
+
     # -------------------- Validators --------------------
 
     @field_validator("environment")
     def validate_environment(cls, v):
+        # Normalize short aliases to full names
+        aliases = {"dev": "development", "prod": "production", "stg": "staging"}
+        v = aliases.get(v.lower(), v.lower())
         allowed = ["development", "staging", "production"]
         if v not in allowed:
             raise ValueError(f"Environment must be one of {allowed}")

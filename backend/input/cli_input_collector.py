@@ -10,6 +10,7 @@ Supports:
 
 import json
 import os
+from core.schema_extractor import extract_from_path
 
 # Supported column types shown to the user
 COLUMN_TYPES = [
@@ -39,7 +40,7 @@ def collect_generation_input():
     print("\n" + "─" * 50)
     print("  SCHEMA DEFINITION")
     print("─" * 50)
-    print("  1. Upload file (CSV or JSON) — schema + sample rows used as reference")
+    print("  1. Upload file (CSV, JSON or Parquet) — schema + sample rows used as reference")
     print("  2. Upload JSON schema file only — column definitions, no sample rows")
     print("  3. Define columns manually")
     print("  4. Skip — let AI decide")
@@ -52,45 +53,26 @@ def collect_generation_input():
     sample_file = None
 
     if schema_choice == "1":
-        file_path = _prompt("File path (.csv or .json)", required=True)
+        file_path = _prompt("File path (.csv, .json or .parquet)", required=True)
         if not os.path.exists(file_path):
             print(f"  ⚠ File not found: {file_path}. Falling back to manual entry.")
             schema_choice = "3"
-        elif file_path.lower().endswith(".csv"):
-            extracted = _extract_from_csv(file_path)
-            if extracted:
-                schema = extracted["schema"]
-                sample_file = file_path
+        else:
+            extracted = extract_from_path(file_path)
+            if extracted and extracted.get("columns"):
+                schema = extracted["columns"]
+                sample_rows = extracted.get("sample_rows") or []
+                sample_count = len(sample_rows)
+                # For CSV/Parquet pass the file path forward so InputProcessor loads rows
+                if extracted["file_type"] in ("csv", "parquet") and sample_count > 0:
+                    sample_file = file_path
                 print(
-                    f"\n  ✅ Schema extracted ({len(schema)} columns, "
-                    f"{extracted['sample_count']} sample rows will be used as reference)"
+                    f"\n  ✅ Schema extracted ({len(schema)} columns"
+                    + (f", {sample_count} sample rows will be used as reference)" if sample_count > 0 else ")")
                 )
                 _print_schema_preview(schema)
             else:
                 schema_choice = "3"
-        elif file_path.lower().endswith(".json"):
-            extracted = _extract_from_json(file_path)
-            if extracted:
-                schema = extracted.get("schema")
-                sample_count = extracted.get("sample_count", 0)
-                if schema:
-                    if sample_count > 0:
-                        sample_file = file_path
-                        print(
-                            f"\n  ✅ Schema extracted ({len(schema)} columns, "
-                            f"{sample_count} sample rows will be used as reference)"
-                        )
-                    else:
-                        print(f"\n  ✅ Schema loaded ({len(schema)} columns, schema-only — no sample rows)")
-                    _print_schema_preview(schema)
-                else:
-                    print("  ⚠ Could not extract schema from JSON. Falling back to manual entry.")
-                    schema_choice = "3"
-            else:
-                schema_choice = "3"
-        else:
-            print("  ⚠ Unsupported file type. Only .csv and .json are supported. Falling back to manual entry.")
-            schema_choice = "3"
 
     if schema_choice == "2":
         schema_file = _prompt("JSON schema file path (.json)", required=True)
@@ -173,102 +155,8 @@ def _auto_detect_pk(schema: list) -> str | None:
 
 
 # ─────────────────────────────────────────
-# FILE EXTRACTION HELPERS
+# FILE EXTRACTION & PREVIEW HELPERS
 # ─────────────────────────────────────────
-
-def _extract_from_csv(file_path: str):
-    """
-    Read a CSV file, infer a column schema, and count available sample rows.
-    The sample_file path is passed forward so InputProcessor loads the actual rows.
-    Returns dict with 'schema' and 'sample_count', or None on failure.
-    """
-    try:
-        import pandas as pd
-    except ImportError:
-        print("  ⚠ pandas is required to read CSV files. Run: pip install pandas")
-        return None
-
-    try:
-        # Auto-detect separator (e.g., semicolon vs comma)
-        df = pd.read_csv(file_path, sep=None, engine="python")
-    except Exception as e:
-        print(f"  ⚠ Could not read CSV: {e}")
-        return None
-
-    if df.empty:
-        print("  ⚠ CSV file is empty.")
-        return None
-
-    dtype_map = {
-        "object":         "string",
-        "int64":          "integer",
-        "int32":          "integer",
-        "float64":        "float",
-        "float32":        "float",
-        "bool":           "boolean",
-        "datetime64[ns]": "datetime",
-    }
-
-    schema = []
-    for col_name, dtype in df.dtypes.items():
-        col_type = dtype_map.get(str(dtype), "string")
-
-        name_lower = col_name.lower()
-        if "email" in name_lower:
-            col_type = "email"
-        elif "phone" in name_lower or "mobile" in name_lower:
-            col_type = "phone"
-        elif "date" in name_lower or "time" in name_lower:
-            col_type = "date"
-        elif name_lower in ("id", "uuid") or name_lower.endswith("_id"):
-            col_type = "uuid"
-        elif "url" in name_lower or "link" in name_lower:
-            col_type = "url"
-
-        has_nulls = df[col_name].isnull().any()
-        schema.append({"name": col_name, "type": col_type, "nullable": bool(has_nulls)})
-
-    return {"schema": schema, "sample_count": min(len(df), 10)}
-
-
-def _extract_from_json(file_path: str):
-    """
-    Read a JSON file.
-    - List of row-objects → infer schema + pass as sample rows.
-    - List with 'name'+'type' per item → treat as schema definition only (no sample rows).
-    Returns dict with 'schema' and 'sample_count', or None on failure.
-    """
-    try:
-        with open(file_path, "r") as f:
-            data = json.load(f)
-    except Exception as e:
-        print(f"  ⚠ Could not read JSON file: {e}")
-        return None
-
-    if not (isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict)):
-        print("  ⚠ JSON must be a non-empty array of objects.")
-        return None
-
-    first = data[0]
-
-    # Detect schema-definition format: small objects with 'name' and 'type' keys
-    if "name" in first and "type" in first and len(first) <= 6:
-        return {"schema": data, "sample_count": 0}
-
-    # Actual row data — infer schema from first row
-    schema = []
-    for k, v in first.items():
-        if isinstance(v, bool):
-            col_type = "boolean"
-        elif isinstance(v, int):
-            col_type = "integer"
-        elif isinstance(v, float):
-            col_type = "float"
-        else:
-            col_type = "string"
-        schema.append({"name": k, "type": col_type, "nullable": False})
-
-    return {"schema": schema, "sample_count": min(len(data), 10)}
 
 
 def _print_schema_preview(schema):
